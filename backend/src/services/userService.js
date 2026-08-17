@@ -11,7 +11,7 @@ async function getOrCreateUser(telegramUser, executor = db) {
 
     const info = await executor.run(`
         INSERT INTO users (telegram_id, username, first_name, photo_url, coins_balance, account_level, cases_opened)
-        VALUES (?, ?, ?, ?, 500, 1, 0)
+        VALUES (?, ?, ?, ?, 0, 1, 0)
     `, [telegramUser.id, telegramUser.username || null, telegramUser.first_name || null, telegramUser.photo_url || null]);
 
     return executor.get(`SELECT * FROM users WHERE id = ?`, [info.lastInsertRowid]);

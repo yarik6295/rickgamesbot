@@ -279,8 +279,8 @@ $('#btn-result-ok').addEventListener('click', () => {
 
 async function loadProfile() {
   try {
-    const { user, dailyBonus } = await Api.getProfile();
-    state.profile = { user, dailyBonus };
+    const { user } = await Api.getProfile();
+    state.profile = { user };
     const tgUser = TelegramBridge.getUser();
 
     $('#profile-avatar').src = tgUser.photo_url || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + user.telegram_id;
@@ -291,7 +291,6 @@ async function loadProfile() {
     $('#profile-balance').textContent = user.coins_balance;
 
     updateBalanceUI(user.coins_balance);
-    updateDailyBonusButton();
 
     const { transactions } = await Api.getTransactions();
     renderTransactions(transactions);
@@ -301,7 +300,6 @@ async function loadProfile() {
 }
 
 const TX_LABELS = {
-  daily_bonus: '🎁 Ежедневный бонус',
   case_open: '🎁 Открытие кейса',
   sell_item: '💸 Продажа предмета',
   admin_adjust: '⚙️ Корректировка',
@@ -329,45 +327,6 @@ function renderTransactions(transactions) {
     list.appendChild(row);
   });
 }
-
-/* ============================= ЕЖЕДНЕВНЫЙ БОНУС ============================= */
-
-function updateDailyBonusButton() {
-  const btn = $('#btn-daily-bonus');
-  const available = state.profile?.dailyBonus?.available;
-  btn.classList.toggle('bonus-ready', !!available);
-}
-
-$('#btn-daily-bonus').addEventListener('click', () => {
-  const available = state.profile?.dailyBonus?.available ?? true;
-  $('#daily-bonus-text').textContent = available
-    ? 'Заберите бесплатные звёзды — доступно раз в 24 часа.'
-    : 'Бонус уже получен сегодня. Загляните завтра!';
-  $('#btn-daily-bonus-claim').disabled = !available;
-  $('#daily-bonus-modal').classList.remove('hidden');
-});
-
-$('#btn-daily-bonus-cancel').addEventListener('click', () => {
-  $('#daily-bonus-modal').classList.add('hidden');
-});
-
-$('#btn-daily-bonus-claim').addEventListener('click', async () => {
-  const claimBtn = $('#btn-daily-bonus-claim');
-  claimBtn.disabled = true;
-  try {
-    const res = await Api.claimDailyBonus();
-    updateBalanceUI(res.newBalance);
-    showToast(`Начислено ${res.amount} ⭐!`);
-    TelegramBridge.haptic('success');
-    if (state.profile) state.profile.dailyBonus = { available: false };
-    updateDailyBonusButton();
-    $('#daily-bonus-modal').classList.add('hidden');
-  } catch (e) {
-    showToast(e.message, 'error');
-  } finally {
-    claimBtn.disabled = false;
-  }
-});
 
 /* ============================= ПОПОЛНЕНИЕ БАЛАНСА ============================= */
 

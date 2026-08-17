@@ -36,7 +36,6 @@ const Api = {
 
   getProfile: () => apiRequest('/user/me'),
   getTransactions: () => apiRequest('/user/transactions'),
-  claimDailyBonus: () => apiRequest('/user/daily-bonus', { method: 'POST' }),
   topUp: (amount) => apiRequest('/user/topup', { method: 'POST', body: { amount } }),
 
   // ---- Crash (общий раунд для всех игроков) ----

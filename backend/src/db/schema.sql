@@ -3,7 +3,7 @@
 -- ВАЖНО: coins_balance — ПОЛНОСТЬЮ ВИРТУАЛЬНАЯ валюта.
 -- Её нельзя купить за реальные деньги и нельзя вывести.
 -- Пополняется только через игровые механики (ежедневный бонус,
--- достижения, рефералы) — см. userRoutes/dailyBonus.
+-- достижения, рефералы) — см. userRoutes.
 -- =========================================================
 
 -- Пользователи (привязаны к Telegram ID)
@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS users (
     username        TEXT,
     first_name      TEXT,
     photo_url       TEXT,
-    coins_balance   INTEGER NOT NULL DEFAULT 500,     -- виртуальный баланс (стартовый бонус)
+    coins_balance   INTEGER NOT NULL DEFAULT 0,       -- виртуальный баланс (стартовый бонус)
     account_level   INTEGER NOT NULL DEFAULT 1,
     cases_opened    INTEGER NOT NULL DEFAULT 0,
     xp              INTEGER NOT NULL DEFAULT 0,
