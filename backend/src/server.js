@@ -1,4 +1,5 @@
 require('dotenv').config();
+require('express-async-errors'); // ловит ошибки из async-обработчиков без ручных try/catch везде
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -8,50 +9,51 @@ const path = require('path');
 const db = require('./db/database');
 const runCasesSeed = require('./db/seed');
 
-// Сидинг кейсов идемпотентен (ON CONFLICT DO UPDATE + деактивация старых
-// слагов), поэтому просто прогоняем его при каждом старте сервера — это
-// гарантирует, что после обновления конфигурации кейсов (цены/призы) база
-// всегда приводится к актуальному состоянию без ручного запуска `npm run seed`.
-console.log('[seed] Наполняем/обновляем кейсы...');
-runCasesSeed();
-console.log('[seed] Готово.');
+async function start() {
+    console.log('[db] Применяем схему...');
+    await db.init();
 
-const casesRoutes = require('./routes/cases.routes');
-const userRoutes = require('./routes/user.routes');
-const gamesRoutes = require('./routes/games.routes');
+    // Сидинг кейсов идемпотентен, прогоняем при каждом старте сервера.
+    console.log('[seed] Наполняем/обновляем кейсы...');
+    await runCasesSeed();
+    console.log('[seed] Готово.');
 
-const app = express();
-const PORT = process.env.PORT || 3000;
+    const casesRoutes = require('./routes/cases.routes');
+    const userRoutes = require('./routes/user.routes');
+    const gamesRoutes = require('./routes/games.routes');
 
-app.use(helmet({ contentSecurityPolicy: false }));
-app.use(cors());
-// Сжимает ответы (в первую очередь статику фронтенда и более крупные JSON —
-// список кейсов/предметов). На мобильных сетях, где round-trip и так не
-// самый быстрый, каждый лишний КБ ощущается сильнее, чем на десктопе —
-// gzip тут не про CPU, а про то, что меньше байт нужно физически передать.
-app.use(compression());
-app.use(express.json());
+    const app = express();
+    const PORT = process.env.PORT || 3000;
 
-// Отдаём статику фронтенда (для простого деплоя одним процессом)
-app.use(express.static(path.join(__dirname, '../../frontend')));
+    app.use(helmet({ contentSecurityPolicy: false }));
+    app.use(cors());
+    app.use(compression());
+    app.use(express.json());
 
-app.use('/api/cases', casesRoutes);
-app.use('/api/user', userRoutes);
-app.use('/api/games', gamesRoutes);
+    // Отдаём статику фронтенда (для простого деплоя одним процессом)
+    app.use(express.static(path.join(__dirname, '../../frontend')));
 
-app.get('/api/health', (req, res) => res.json({ status: 'ok', ts: Date.now() }));
+    app.use('/api/cases', casesRoutes);
+    app.use('/api/user', userRoutes);
+    app.use('/api/games', gamesRoutes);
 
-// Отдаём метод и путь в сообщении — иначе на фронте видно только
-// нейтральное "Route not found" и невозможно понять, какой запрос улетел
-// не туда (например, рассинхрон версий фронта/бэка после деплоя).
-app.use((req, res) => res.status(404).json({ error: `Route not found: ${req.method} ${req.originalUrl}` }));
+    app.get('/api/health', (req, res) => res.json({ status: 'ok', ts: Date.now() }));
 
-// Единая обработка ошибок
-app.use((err, req, res, next) => {
-    console.error(err);
-    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
-});
+    app.use((req, res) => res.status(404).json({ error: `Route not found: ${req.method} ${req.originalUrl}` }));
 
-app.listen(PORT, () => {
-    console.log(`🎁 Gifts Case Simulator API запущен на http://localhost:${PORT}`);
+    // Единая обработка ошибок (в т.ч. { status, message } из throw внутри
+    // async-хендлеров — перехватываются благодаря express-async-errors)
+    app.use((err, req, res, next) => {
+        console.error(err);
+        res.status(err.status || 500).json({ error: err.message || 'Внутренняя ошибка сервера' });
+    });
+
+    app.listen(PORT, () => {
+        console.log(`🎁 Gifts Case Simulator API запущен на http://localhost:${PORT}`);
+    });
+}
+
+start().catch((err) => {
+    console.error('Не удалось запустить сервер:', err);
+    process.exit(1);
 });

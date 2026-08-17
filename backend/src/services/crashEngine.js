@@ -2,67 +2,64 @@ const db = require('../db/database');
 const { generateCrashPoint } = require('./gamesService');
 
 /**
- * Crash — общий "живой" раунд для всех игроков одновременно, как в реальных
- * казино-crash играх (Aviator/JetX и т.п.), а не отдельный раунд на юзера.
+ * Crash — общий "живой" раунд для всех игроков одновременно (см. подробное
+ * описание фаз в комментарии выше в оригинальной версии файла).
  *
- * Один процесс = один вечный цикл фаз, крутится с момента старта сервера:
- *
- *   waiting (WAITING_MS)  — приём ставок, обратный отсчёт до старта
- *     → flying             — мультипликатор растёт по формуле mult(t)=e^(k·t)
- *       → crashed (CRASHED_MS) — показываем точку краша всем, кто не успел
- *         → waiting (новый раунд)
- *
- * Всё состояние (crashPoint, кто на какую сумму поставил, кто уже забрал) —
- * только в памяти сервера, клиенты только читают его через /crash/state и
- * шлют намерения (bet/cashout). Раунд один и тот же для всех — кто угодно,
- * подключившийся в любой момент, видит одну и ту же фазу/мультипликатор.
+ * ВАЖНО про переезд на Turso: сам игровой цикл (tick/фазы/таймер) остаётся
+ * полностью синхронным и не ждёт сеть — это критично для точности таймингов
+ * раунда. Запись в БД (списание ставки, начисление выигрыша, лог раунда)
+ * асинхронная, но обёрнута так, чтобы не блокировать и не путать fasedTicks:
+ * при крахе раунда состояние (phase='crashed') фиксируется СИНХРОННО первым
+ * делом, а запись логов проигравших уходит в фоне (fire-and-forget с
+ * логированием ошибки), чтобы следующий tick() не мог провалиться в ту же
+ * ветку ещё раз, пока пишутся логи.
  */
 
-const WAITING_MS = 6000;   // приём ставок перед стартом
-const CRASHED_MS = 3500;   // показ результата после краша
+const WAITING_MS = 6000;
+const CRASHED_MS = 3500;
 const TICK_MS = 100;
-const GROWTH_K = 0.11;     // скорость роста: mult = e^(GROWTH_K * секунды)
+const GROWTH_K = 0.11;
 const HISTORY_LIMIT = 30;
 
 const MIN_BET = 5;
 const MAX_BET = 100000;
 
 const state = {
-    phase: 'waiting',       // 'waiting' | 'flying' | 'crashed'
+    phase: 'waiting',
     roundId: 1,
     phaseStartedAt: Date.now(),
     flyingStartedAt: null,
     crashPoint: null,
     serverSeed: null,
-    history: [],             // [{ point, roundId }], новые — в начале
-    players: new Map(),      // userId -> { bet, cashedOut, cashoutMultiplier, payout, username }
+    history: [],
+    players: new Map(),
 };
 
-function ledgerDebit(userId, amount, type, referenceId) {
-    const user = db.prepare(`SELECT coins_balance FROM users WHERE id = ?`).get(userId);
+async function ledgerDebit(userId, amount, type, referenceId) {
+    const user = await db.get(`SELECT coins_balance FROM users WHERE id = ?`, [userId]);
     const newBalance = user.coins_balance - amount;
-    db.prepare(`UPDATE users SET coins_balance = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(newBalance, userId);
-    db.prepare(`INSERT INTO transactions (user_id, type, amount_coins, balance_after, reference_id) VALUES (?, ?, ?, ?, ?)`)
-        .run(userId, type, -amount, newBalance, referenceId || null);
+    await db.run(`UPDATE users SET coins_balance = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [newBalance, userId]);
+    await db.run(`INSERT INTO transactions (user_id, type, amount_coins, balance_after, reference_id) VALUES (?, ?, ?, ?, ?)`,
+        [userId, type, -amount, newBalance, referenceId || null]);
     return newBalance;
 }
 
-function ledgerCredit(userId, amount, type, referenceId) {
-    const user = db.prepare(`SELECT coins_balance FROM users WHERE id = ?`).get(userId);
+async function ledgerCredit(userId, amount, type, referenceId) {
+    const user = await db.get(`SELECT coins_balance FROM users WHERE id = ?`, [userId]);
     const newBalance = user.coins_balance + amount;
-    db.prepare(`UPDATE users SET coins_balance = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(newBalance, userId);
+    await db.run(`UPDATE users SET coins_balance = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [newBalance, userId]);
     if (amount > 0) {
-        db.prepare(`INSERT INTO transactions (user_id, type, amount_coins, balance_after, reference_id) VALUES (?, ?, ?, ?, ?)`)
-            .run(userId, type, amount, newBalance, referenceId || null);
+        await db.run(`INSERT INTO transactions (user_id, type, amount_coins, balance_after, reference_id) VALUES (?, ?, ?, ?, ?)`,
+            [userId, type, amount, newBalance, referenceId || null]);
     }
     return newBalance;
 }
 
-function logRound(userId, bet, payout, multiplier, outcome, roundData, serverSeed) {
-    db.prepare(`
+async function logRound(userId, bet, payout, multiplier, outcome, roundData, serverSeed) {
+    await db.run(`
         INSERT INTO game_rounds (user_id, game_type, bet_coins, payout_coins, multiplier, outcome, round_data, server_seed)
         VALUES (?, 'crash', ?, ?, ?, ?, ?, ?)
-    `).run(userId, bet, payout, multiplier, outcome, JSON.stringify(roundData), serverSeed);
+    `, [userId, bet, payout, multiplier, outcome, JSON.stringify(roundData), serverSeed]);
 }
 
 function computeMultiplier(now) {
@@ -92,17 +89,27 @@ function startFlying(now) {
 }
 
 function crashRound(now) {
-    // Все, кто не успел забрать до краша, проигрывают ставку (она уже
-    // списана в момент bet — см. placeBet).
+    // Список проигравших фиксируем сразу, а сам переход фазы делаем
+    // синхронно — следующий tick() уже не попадёт в эту ветку повторно,
+    // даже если запись логов в БД ещё не завершилась.
+    const losers = [];
     for (const [userId, p] of state.players.entries()) {
-        if (!p.cashedOut) {
-            logRound(userId, p.bet, 0, state.crashPoint, 'lose', { crashPoint: state.crashPoint, roundId: state.roundId }, state.serverSeed);
-        }
+        if (!p.cashedOut) losers.push([userId, p]);
     }
-    state.history.unshift({ point: state.crashPoint, roundId: state.roundId });
+
+    const crashPoint = state.crashPoint;
+    const roundId = state.roundId;
+    const serverSeed = state.serverSeed;
+
+    state.history.unshift({ point: crashPoint, roundId });
     if (state.history.length > HISTORY_LIMIT) state.history.length = HISTORY_LIMIT;
     state.phase = 'crashed';
     state.phaseStartedAt = now;
+
+    for (const [userId, p] of losers) {
+        logRound(userId, p.bet, 0, crashPoint, 'lose', { crashPoint, roundId }, serverSeed)
+            .catch((err) => console.error('[crashEngine] Не удалось записать проигрышный раунд:', err));
+    }
 }
 
 function tick() {
@@ -117,8 +124,6 @@ function tick() {
     }
 }
 
-// Цикл запускается один раз при загрузке модуля и живёт весь процесс —
-// раунд действительно один общий и непрерывный для всех подключений.
 setInterval(tick, TICK_MS);
 
 function validateBet(bet, userBalance) {
@@ -130,7 +135,7 @@ function validateBet(bet, userBalance) {
     return n;
 }
 
-function placeBet(user, betRaw) {
+async function placeBet(user, betRaw) {
     if (state.phase !== 'waiting') {
         throw { status: 409, message: 'Приём ставок закрыт — раунд уже идёт, дождитесь следующего' };
     }
@@ -138,7 +143,7 @@ function placeBet(user, betRaw) {
         throw { status: 409, message: 'Вы уже поставили в этом раунде' };
     }
     const bet = validateBet(betRaw, user.coins_balance);
-    const newBalance = ledgerDebit(user.id, bet, 'game_bet');
+    const newBalance = await ledgerDebit(user.id, bet, 'game_bet');
     state.players.set(user.id, {
         bet,
         cashedOut: false,
@@ -149,7 +154,7 @@ function placeBet(user, betRaw) {
     return { newBalance, roundId: state.roundId };
 }
 
-function cashout(user) {
+async function cashout(user) {
     const p = state.players.get(user.id);
     if (!p) throw { status: 404, message: 'Вы не участвуете в текущем раунде' };
     if (p.cashedOut) throw { status: 409, message: 'Вы уже забрали выигрыш в этом раунде' };
@@ -163,8 +168,8 @@ function cashout(user) {
     p.cashedOut = true;
     p.cashoutMultiplier = mult;
     p.payout = Math.floor(p.bet * mult);
-    const newBalance = ledgerCredit(user.id, p.payout, 'game_win');
-    logRound(user.id, p.bet, p.payout, mult, 'cashout', { crashPoint: null, roundId: state.roundId }, state.serverSeed);
+    const newBalance = await ledgerCredit(user.id, p.payout, 'game_win');
+    await logRound(user.id, p.bet, p.payout, mult, 'cashout', { crashPoint: null, roundId: state.roundId }, state.serverSeed);
     return { multiplier: mult, payout: p.payout, newBalance };
 }
 

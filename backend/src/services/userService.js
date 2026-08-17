@@ -1,19 +1,24 @@
 const db = require('../db/database');
 
-function getOrCreateUser(telegramUser) {
-    const existing = db.prepare(`SELECT * FROM users WHERE telegram_id = ?`).get(telegramUser.id);
+/**
+ * executor — необязательный параметр: либо основной db (по умолчанию),
+ * либо tx-объект, переданный изнутри db.transaction(async (tx) => {...}),
+ * чтобы чтение/создание пользователя было частью той же транзакции.
+ */
+async function getOrCreateUser(telegramUser, executor = db) {
+    const existing = await executor.get(`SELECT * FROM users WHERE telegram_id = ?`, [telegramUser.id]);
     if (existing) return existing;
 
-    const info = db.prepare(`
+    const info = await executor.run(`
         INSERT INTO users (telegram_id, username, first_name, photo_url, coins_balance, account_level, cases_opened)
         VALUES (?, ?, ?, ?, 500, 1, 0)
-    `).run(telegramUser.id, telegramUser.username || null, telegramUser.first_name || null, telegramUser.photo_url || null);
+    `, [telegramUser.id, telegramUser.username || null, telegramUser.first_name || null, telegramUser.photo_url || null]);
 
-    return db.prepare(`SELECT * FROM users WHERE id = ?`).get(info.lastInsertRowid);
+    return executor.get(`SELECT * FROM users WHERE id = ?`, [info.lastInsertRowid]);
 }
 
-function getUserById(id) {
-    return db.prepare(`SELECT * FROM users WHERE id = ?`).get(id);
+async function getUserById(id, executor = db) {
+    return executor.get(`SELECT * FROM users WHERE id = ?`, [id]);
 }
 
 /**
