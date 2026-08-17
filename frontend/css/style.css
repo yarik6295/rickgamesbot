@@ -1,0 +1,762 @@
+/* =========================================================
+   Gifts Case Simulator — Cyberpunk / Neon theme
+   ========================================================= */
+
+* { -webkit-tap-highlight-color: transparent; }
+
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+
+.bg-grid {
+  background-image:
+    linear-gradient(rgba(0,246,255,.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,246,255,.06) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+.bg-gradient-radial {
+  background: radial-gradient(circle at 20% 0%, rgba(176,38,255,.18), transparent 45%),
+              radial-gradient(circle at 90% 20%, rgba(0,246,255,.12), transparent 40%);
+}
+
+.tab-panel.hidden { display: none; }
+
+.section-title {
+  font-weight: 800;
+  font-size: 1.4rem;
+  letter-spacing: -0.01em;
+  margin-bottom: 14px;
+}
+
+.back-btn {
+  width: 36px; height: 36px;
+  border-radius: 12px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.08);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1rem; color: #fff;
+  transition: background .15s ease, transform .12s ease;
+}
+.back-btn:active { transform: scale(.94); background: rgba(255,255,255,.12); }
+
+/* ---------- Карточки кейсов: цветные горизонтальные ряды ---------- */
+.case-row {
+  position: relative;
+  display: flex; align-items: center; justify-content: space-between;
+  border-radius: 20px;
+  padding: 20px;
+  overflow: hidden;
+  min-height: 108px;
+  transition: transform .15s ease;
+}
+.case-row:active { transform: scale(.98); }
+.case-row .case-info { position: relative; z-index: 2; }
+.case-row .case-name { font-weight: 800; font-size: 1.15rem; letter-spacing: -0.01em; }
+.case-row .case-price {
+  margin-top: 6px;
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: .85rem; font-weight: 700;
+  background: rgba(0,0,0,.22);
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+.case-row .case-icon {
+  font-size: 3.2rem;
+  filter: drop-shadow(0 4px 10px rgba(0,0,0,.35));
+  position: relative; z-index: 2;
+}
+.case-row .case-locked {
+  position: absolute; inset: 0; z-index: 3;
+  background: rgba(5,5,10,.72);
+  backdrop-filter: blur(2px);
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column; gap: 4px;
+  font-size: .8rem; font-weight: 600; color: rgba(255,255,255,.75);
+}
+
+/* Цветовые темы карточек — циклически по индексу кейса */
+.case-row.theme-0 { background: linear-gradient(135deg, #454b58, #23262f); }
+.case-row.theme-1 { background: linear-gradient(135deg, #f6ac3c, #c9701a); }
+.case-row.theme-2 { background: linear-gradient(135deg, #ef5757, #a02323); }
+.case-row.theme-3 { background: linear-gradient(135deg, #5a6bef, #7a3ce0); }
+.case-row.theme-4 { background: linear-gradient(135deg, #a53cef, #5f1fc4); }
+
+/* ---------- Заглушки экранов (Конкурсы / Лидеры) ---------- */
+.stub-card {
+  background: linear-gradient(160deg, #14142a, #0d0d18);
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 20px;
+  padding: 40px 24px;
+  text-align: center;
+  margin-top: 8px;
+}
+.stub-icon {
+  font-size: 2.8rem;
+  margin-bottom: 14px;
+  filter: drop-shadow(0 0 14px rgba(0,246,255,.25));
+}
+
+/* ---------- Нижняя навигация ---------- */
+.bottom-nav {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+  display: flex; justify-content: space-around; align-items: center;
+  padding: 8px 6px calc(8px + env(safe-area-inset-bottom));
+  background: rgba(10,10,18,.92);
+  backdrop-filter: blur(14px);
+  border-top: 1px solid rgba(255,255,255,.06);
+}
+.nav-btn {
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 6px 2px;
+  border-radius: 14px;
+  color: rgba(255,255,255,.4);
+  transition: color .15s ease, background .15s ease;
+}
+.nav-btn .nav-icon { font-size: 1.25rem; line-height: 1; filter: grayscale(1) opacity(.7); transition: filter .15s ease; }
+.nav-btn .nav-label { font-size: .62rem; font-weight: 700; }
+.nav-btn.active { color: #fff; background: rgba(0,246,255,.08); }
+.nav-btn.active .nav-icon { filter: none; }
+
+/* ---------- Кнопки ---------- */
+.btn-primary {
+  background: linear-gradient(135deg, #00f6ff, #b026ff);
+  color: #060610;
+  font-weight: 700;
+  border-radius: 14px;
+  padding: .7rem 1rem;
+  box-shadow: 0 0 16px rgba(176,38,255,.35);
+  transition: transform .12s ease, opacity .2s ease;
+}
+.btn-primary:active { transform: scale(.97); }
+.btn-primary:disabled { opacity: .4; box-shadow: none; }
+
+.btn-secondary {
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.12);
+  color: #fff;
+  font-weight: 600;
+  border-radius: 14px;
+  padding: .7rem 1rem;
+  transition: background .15s ease, transform .12s ease;
+}
+.btn-secondary:active { transform: scale(.97); background: rgba(255,255,255,.1); }
+
+/* ---------- Рулетка ---------- */
+.roulette-wrap {
+  position: relative;
+  background: #0c0c16;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 18px;
+  padding: 6px 0;
+}
+.roulette-viewport {
+  overflow: hidden;
+  height: 128px;
+  position: relative;
+}
+.roulette-track {
+  display: flex;
+  height: 100%;
+  will-change: transform;
+  /* transition задаётся динамически в JS для нужной кривой замедления */
+}
+.reel-item {
+  flex: 0 0 104px;
+  height: 112px;
+  margin: 8px 6px;
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: 2rem;
+  background: linear-gradient(160deg, #171730, #0e0e1c);
+  border: 1px solid rgba(255,255,255,.08);
+  position: relative;
+}
+.reel-item .reel-value { font-size: .68rem; font-weight: 700; color: #ffd83d; }
+.reel-item.rarity-common     { border-color: rgba(160,160,180,.35); }
+.reel-item.rarity-uncommon   { border-color: rgba(0,246,255,.4); box-shadow: 0 0 10px rgba(0,246,255,.15) inset; }
+.reel-item.rarity-rare       { border-color: rgba(0,140,255,.55); box-shadow: 0 0 12px rgba(0,140,255,.2) inset; }
+.reel-item.rarity-epic       { border-color: rgba(176,38,255,.6); box-shadow: 0 0 14px rgba(176,38,255,.25) inset; }
+.reel-item.rarity-legendary  { border-color: rgba(255,216,61,.75); box-shadow: 0 0 16px rgba(255,216,61,.3) inset; }
+.reel-item.winner { animation: winnerPulse .9s ease .05s 2; }
+/* Заглушка ленты (Roulette.skeleton()) — показывается СИНХРОННО в момент
+   открытия экрана кейса, ещё до сетевого запроса за реальным содержимым,
+   чтобы вместо пустого тёмного .roulette-wrap игрок сразу видел "живую"
+   ленту, а не чёрный экран. */
+.reel-item-skeleton {
+  background: linear-gradient(90deg, #171730 25%, #22224a 37%, #171730 63%);
+  background-size: 400% 100%;
+  animation: skeletonShimmer 1.4s ease infinite;
+}
+@keyframes skeletonShimmer {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes winnerPulse {
+  0%,100% { box-shadow: 0 0 0 rgba(255,216,61,0); }
+  50% { box-shadow: 0 0 26px rgba(255,216,61,.55); }
+}
+
+.roulette-pointer {
+  position: absolute; left: 50%; top: -4px;
+  width: 3px; height: calc(100% + 8px);
+  background: linear-gradient(180deg, #ff2e88, #ff2e88);
+  box-shadow: 0 0 10px rgba(255,46,136,.8);
+  transform: translateX(-50%);
+  z-index: 10;
+  border-radius: 2px;
+}
+.roulette-fade-l, .roulette-fade-r {
+  position: absolute; top: 0; bottom: 0; width: 60px; z-index: 5; pointer-events: none;
+}
+.roulette-fade-l { left: 0; background: linear-gradient(90deg, #0c0c16, transparent); }
+.roulette-fade-r { right: 0; background: linear-gradient(270deg, #0c0c16, transparent); }
+
+/* ---------- Результат ---------- */
+.result-card {
+  background: linear-gradient(160deg, #171730, #0e0e1c);
+  border: 1px solid rgba(255,216,61,.35);
+  border-radius: 18px;
+  padding: 18px;
+  box-shadow: 0 0 24px rgba(255,216,61,.12);
+}
+
+/* ---------- Профиль ---------- */
+.surface-card {
+  background: linear-gradient(160deg, #14142a, #0d0d18);
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 18px;
+}
+.stat-box {
+  background: rgba(255,255,255,.03);
+  border-radius: 12px;
+  padding: 10px 4px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.stat-value { font-weight: 800; font-size: 1.05rem; color: #00f6ff; }
+.stat-label { font-size: .65rem; color: rgba(255,255,255,.4); }
+
+/* ---------- Модалка пополнения ---------- */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(5,5,10,.7);
+  backdrop-filter: blur(3px);
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.modal-overlay.hidden { display: none; }
+.modal-card {
+  width: 100%; max-width: 480px;
+  background: #12121f;
+  border-top: 1px solid rgba(255,255,255,.1);
+  border-radius: 22px 22px 0 0;
+  padding: 20px;
+  animation: slideUp .25s ease;
+}
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+.topup-amount-btn {
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 12px;
+  padding: 10px 0;
+  font-weight: 700;
+  font-size: .85rem;
+  transition: all .15s ease;
+}
+.topup-amount-btn.selected {
+  border-color: #00f6ff;
+  background: rgba(0,246,255,.1);
+  box-shadow: 0 0 12px rgba(0,246,255,.25);
+}
+
+/* ---------- Тост ---------- */
+.toast {
+  position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%);
+  background: #1a1a2e; border: 1px solid rgba(255,255,255,.12);
+  padding: 10px 18px; border-radius: 999px; font-size: .82rem; font-weight: 600;
+  z-index: 60; box-shadow: 0 4px 20px rgba(0,0,0,.4);
+  animation: toastIn .25s ease;
+}
+.toast.error { border-color: rgba(255,46,136,.5); color: #ff8fbb; }
+.toast.hidden { display: none; }
+@keyframes toastIn { from { opacity: 0; transform: translate(-50%, 10px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+/* ==================================================================
+   ИГРЫ: хаб + Crash / Mines / Towers / Plinko
+   Стилизовано по референсу (тёмные неоновые плитки, LIVE/NEW бейджи)
+   ================================================================== */
+
+.games-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.game-tile {
+  position: relative;
+  aspect-ratio: 1 / 0.85;
+  border-radius: 18px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,.08);
+}
+.game-tile:active { transform: scale(.97); }
+.game-tile-crash  { background: radial-gradient(circle at 70% 20%, #2a2450, #12121f 70%); }
+.game-tile-mines  { background: radial-gradient(circle at 70% 20%, #17324a, #12121f 70%); }
+.game-tile-towers { background: radial-gradient(circle at 70% 20%, #3a2a12, #12121f 70%); }
+.game-tile-plinko { background: radial-gradient(circle at 70% 20%, #401a3a, #12121f 70%); }
+.game-tile-upgrade { background: radial-gradient(circle at 70% 20%, #123322, #12121f 70%); }
+.game-tile-wheel   { background: radial-gradient(circle at 70% 20%, #3a1230, #12121f 70%); }
+.game-tile-icon { font-size: 2.4rem; margin-bottom: 4px; filter: drop-shadow(0 0 10px rgba(255,255,255,.25)); }
+.game-tile-name { font-weight: 900; font-size: 1.15rem; letter-spacing: -0.02em; font-style: italic; }
+.game-tile-sub { font-size: .7rem; color: rgba(255,255,255,.5); font-weight: 600; }
+.game-badge {
+  position: absolute; top: 10px; right: 10px;
+  font-size: .6rem; font-weight: 800; letter-spacing: .04em;
+  padding: 3px 8px; border-radius: 999px;
+}
+.badge-live { background: #ff2e4d; color: #fff; box-shadow: 0 0 10px rgba(255,46,77,.6); }
+.badge-new  { background: #00f6ff; color: #06060f; box-shadow: 0 0 10px rgba(0,246,255,.6); }
+
+/* ---------- Общие элементы ставок ---------- */
+.bet-label { font-size: .72rem; color: rgba(255,255,255,.45); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.bet-input-row {
+  display: flex; align-items: center; gap: 8px; margin-top: 6px;
+}
+.bet-adj {
+  width: 38px; height: 38px; border-radius: 12px;
+  background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12);
+  font-weight: 800; font-size: 1.1rem; flex-shrink: 0;
+}
+.bet-input {
+  flex: 1; background: #12121f; border: 1px solid rgba(255,255,255,.12);
+  border-radius: 12px; padding: .6rem .8rem; font-weight: 700; text-align: center;
+  color: #fff; font-size: 1rem;
+}
+/* ---------- Кнопка MAX (максимально возможная ставка) ---------- */
+.bet-input-wrap { position: relative; flex: 1; display: flex; }
+.bet-input-wrap .bet-input { width: 100%; padding-right: 54px; }
+.bet-max-btn {
+  position: absolute; right: 5px; top: 50%; transform: translateY(-50%);
+  font-size: .62rem; font-weight: 800; letter-spacing: .03em;
+  padding: 5px 9px; border-radius: 9px; flex-shrink: 0;
+  background: linear-gradient(135deg, rgba(0,246,255,.22), rgba(176,38,255,.22));
+  border: 1px solid rgba(0,246,255,.4); color: #7be9ff;
+  box-shadow: 0 0 8px rgba(0,246,255,.15);
+}
+.bet-max-btn:active { transform: translateY(-50%) scale(.92); background: rgba(0,246,255,.32); }
+.mines-count-row { display: flex; gap: 8px; }
+.mine-count-btn {
+  flex: 1; padding: .55rem 0; border-radius: 12px; font-weight: 700; font-size: .82rem;
+  background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1);
+}
+.mine-count-btn.selected { border-color: #00f6ff; background: rgba(0,246,255,.1); box-shadow: 0 0 12px rgba(0,246,255,.25); }
+
+.btn-cashout {
+  background: linear-gradient(135deg, #2fe08a, #16a35e);
+  color: #06180f; font-weight: 800; border-radius: 14px;
+  box-shadow: 0 0 16px rgba(47,224,138,.4);
+}
+.btn-cashout:active { transform: scale(.97); }
+.btn-cashout:disabled { opacity: .45; box-shadow: none; }
+
+.bonus-ready { animation: bonusPulse 1.4s infinite; }
+@keyframes bonusPulse {
+  0%,100% { box-shadow: 0 0 0 rgba(255,216,61,0); }
+  50% { box-shadow: 0 0 0 6px rgba(255,216,61,.25); }
+}
+
+/* ---------- CRASH ---------- */
+
+/* История последних раундов — общая лента для всех игроков */
+.crash-history {
+  display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 8px;
+  scrollbar-width: none;
+}
+.crash-history::-webkit-scrollbar { display: none; }
+.crash-chip {
+  flex-shrink: 0;
+  font-size: .74rem; font-weight: 800;
+  padding: 5px 10px; border-radius: 999px;
+  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(255,255,255,.08);
+}
+.crash-chip-low  { color: #ff8fbb; border-color: rgba(255,46,136,.35); background: rgba(255,46,136,.08); }
+.crash-chip-mid  { color: #7be9ff; border-color: rgba(0,246,255,.35); background: rgba(0,246,255,.08); }
+.crash-chip-huge { color: #ffe066; border-color: rgba(255,216,61,.45); background: rgba(255,216,61,.1); box-shadow: 0 0 10px rgba(255,216,61,.25); }
+
+.crash-stage {
+  position: relative;
+  height: 260px;
+  background: radial-gradient(circle at 50% 100%, rgba(176,38,255,.18), #0c0c16 70%);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 18px;
+  overflow: hidden;
+}
+.crash-stage::before {
+  /* тонкая сетка фоном, как в реальных crash-играх */
+  content: '';
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px);
+  background-size: 28px 28px;
+  pointer-events: none;
+}
+.crash-top-row {
+  position: absolute; top: 10px; left: 10px; right: 10px; z-index: 3;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.crash-live-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: .62rem; font-weight: 800; letter-spacing: .04em;
+  color: #fff; background: rgba(255,46,77,.85);
+  padding: 4px 9px; border-radius: 999px;
+  box-shadow: 0 0 10px rgba(255,46,77,.5);
+}
+.crash-live-dot {
+  width: 6px; height: 6px; border-radius: 50%; background: #fff;
+  animation: crashLivePulse 1.2s infinite;
+}
+@keyframes crashLivePulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+.crash-players-badge {
+  font-size: .68rem; font-weight: 700; color: rgba(255,255,255,.7);
+  background: rgba(0,0,0,.35); padding: 4px 9px; border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.1);
+}
+.crash-canvas {
+  position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1;
+  display: none; /* график больше не рисуем — акцент только на ракете по центру */
+}
+.crash-center {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 3;
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+  padding-top: 18px;
+  pointer-events: none;
+}
+.crash-multiplier {
+  font-size: 2.5rem; font-weight: 900; font-style: italic;
+  color: #00f6ff; text-shadow: 0 0 20px rgba(0,246,255,.6);
+  transition: color .2s ease;
+}
+.crash-multiplier.crash-busted { color: #ff2e88; text-shadow: 0 0 20px rgba(255,46,136,.7); }
+.crash-status-label { font-size: .78rem; color: rgba(255,255,255,.55); font-weight: 600; margin-top: 4px; text-align: center; padding: 0 12px; }
+
+/* ---------- Ракета: неподвижна в центре сцены, вращается,
+   вокруг неё потоки воздуха создают ощущение полёта вверх ---------- */
+.crash-rocket-zone {
+  position: absolute; left: 50%; top: 72%; transform: translate(-50%, -50%);
+  z-index: 2; width: 150px; height: 150px;
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: none;
+}
+.crash-rocket-glow {
+  position: absolute; inset: 0; border-radius: 50%;
+  background: radial-gradient(circle, rgba(0,246,255,.28) 0%, rgba(0,246,255,0) 70%);
+  opacity: 0; transition: opacity .3s ease;
+}
+.crash-rocket-zone.is-flying .crash-rocket-glow { opacity: 1; animation: rocketGlowPulse 1.1s ease-in-out infinite; }
+.crash-rocket-zone.is-crashed .crash-rocket-glow {
+  background: radial-gradient(circle, rgba(255,46,136,.35) 0%, rgba(255,46,136,0) 70%);
+  opacity: 1; animation: none;
+}
+@keyframes rocketGlowPulse { 0%,100% { transform: scale(1); opacity: .7; } 50% { transform: scale(1.18); opacity: 1; } }
+
+/* Эмодзи 🚀 в системном рендере нарисован по диагонали (нос смотрит
+   вправо-вверх примерно на 45°), а не строго вертикально. -45deg
+   компенсирует этот угол, чтобы ракета визуально стояла носом точно вверх. */
+.crash-rocket {
+  position: relative; font-size: 3.8rem; z-index: 2;
+  filter: drop-shadow(0 0 10px rgba(255,150,50,.6));
+  transform: rotate(-46deg);
+  animation: rocketIdle 2.6s ease-in-out infinite;
+}
+/* Ожидание ставок — лёгкое покачивание на месте, без ухода от вертикали */
+@keyframes rocketIdle {
+  0%, 100% { transform: rotate(-46deg) translateY(0); }
+  50%      { transform: rotate(-44deg) translateY(-4px); }
+}
+/* Полёт — ракета держится строго вертикально (лишь еле заметное покачивание
+   ±2° для ощущения "живости"), реальную скорость и мощь передаёт вибрация
+   от тяги, усиливающаяся вместе с множителем (--shake, задаётся из JS),
+   и потоки воздуха вокруг. Полного оборота нет: ракета несимметрична
+   (нос + хвост с пламенем), поэтому вращение всегда выглядело бы как
+   "перевёртыш", а не как честное вращение. */
+.crash-rocket-zone.is-flying .crash-rocket {
+  animation:
+    rocketAscend .9s ease-in-out infinite,
+    rocketThrust .1s ease-in-out infinite alternate;
+}
+@keyframes rocketAscend {
+  0%, 100% { transform: rotate(-46deg); }
+  50%      { transform: rotate(-44deg); }
+}
+@keyframes rocketThrust {
+  from { translate: calc(var(--shake, 1px) * -1) 0; }
+  to   { translate: var(--shake, 1px) calc(var(--shake, 1px) * -1); }
+}
+/* Краш — реактивная тяга глохнет, вспышка меняется на красную (см. .is-crashed
+   .crash-rocket-glow), а сама ракета — раз мультипликатор растёт по экспоненте —
+   должна выглядеть так, будто улетела за пределы видимой зоны на огромной
+   скорости: быстрый рывок вверх с затуханием, БЕЗ переворота/вращения. */
+.crash-rocket-zone.is-crashed .crash-rocket {
+  animation: rocketFlyOff .45s cubic-bezier(.25, 0, .6, 1) forwards;
+  filter: drop-shadow(0 0 14px rgba(255,46,136,.85));
+}
+@keyframes rocketFlyOff {
+  0%   { translate: 0 0;       transform: rotate(-46deg) scale(1);  opacity: 1; }
+  100% { translate: 0 -220px;  transform: rotate(-46deg) scale(.5); opacity: 0; }
+}
+
+/* Потоки воздуха вокруг ракеты — полоски, стремительно идущие вниз/наружу,
+   создавая ощущение того, что ракета несётся вверх, оставаясь на месте */
+.crash-airflow {
+  position: absolute; inset: 0; pointer-events: none;
+}
+.crash-airflow .af {
+  position: absolute;
+  bottom: 44%;
+  left: calc(50% + (var(--i) - 3.5) * 13px);
+  width: 2px; height: 14px;
+  border-radius: 2px;
+  background: linear-gradient(to bottom, rgba(0,246,255,.85), rgba(0,246,255,0));
+  opacity: 0;
+}
+.crash-airflow .af { display: none; }
+/* Полоски активны только во время полёта */
+.crash-rocket-zone.is-flying .crash-airflow .af {
+  display: block;
+  animation: airFlow var(--flow-speed, .85s) linear infinite;
+  animation-delay: calc(var(--i) * -0.11s);
+}
+@keyframes airFlow {
+  0%   { bottom: 58%; height: 6px;  opacity: 0; }
+  12%  { opacity: .9; }
+  70%  { opacity: .55; }
+  100% { bottom: 4%;  height: 26px; opacity: 0; }
+}
+
+.crash-my-bet-label { color: #2fe08a !important; }
+.crash-mult-btn {
+  width: 44px; height: 38px; border-radius: 12px; flex-shrink: 0;
+  background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12);
+  font-weight: 800; font-size: .8rem; color: #fff;
+}
+.crash-mult-btn:active { transform: scale(.94); background: rgba(255,255,255,.12); }
+.crash-quick-row { display: flex; gap: 6px; margin-top: 8px; }
+.crash-quick-btn {
+  flex: 1; padding: .5rem 0; border-radius: 10px; font-weight: 700; font-size: .78rem;
+  background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1); color: #fff;
+}
+.crash-quick-btn.selected { border-color: #00f6ff; background: rgba(0,246,255,.1); box-shadow: 0 0 10px rgba(0,246,255,.2); }
+.crash-auto-suffix {
+  width: 38px; height: 38px; display: flex; align-items: center; justify-content: center;
+  color: rgba(255,255,255,.5); font-weight: 800; flex-shrink: 0;
+}
+
+/* ---------- MINES ---------- */
+.mines-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+.mine-cell {
+  aspect-ratio: 1/1;
+  background: linear-gradient(160deg, #1c1c32, #101018);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 12px;
+  font-size: 1.3rem;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform .1s ease, background .15s ease;
+  touch-action: manipulation;
+}
+.mine-cell:active { transform: scale(.92); }
+/* Мгновенная реакция на тап из JS (см. renderGrid в games.js) — тот же
+   фикс, что и towers-tile-pending, по той же причине (:active не всегда
+   срабатывает по тапу в WebKit на iOS). */
+.mine-cell.mine-pending {
+  transform: scale(.92);
+  border-color: rgba(0,246,255,.55);
+  box-shadow: 0 0 0 2px rgba(0,246,255,.25) inset;
+  pointer-events: none;
+}
+.mine-cell.mine-safe { background: linear-gradient(160deg, #123a2a, #0d1f18); border-color: rgba(47,224,138,.5); }
+.mine-cell.mine-boom { background: linear-gradient(160deg, #4a1414, #250a0a); border-color: rgba(255,46,77,.6); }
+/* После успешного вывода — показываем, где были остальные мины, но
+   приглушённо (это уже история, не "вы проиграли"), в отличие от .mine-boom. */
+.mine-cell.mine-revealed { background: linear-gradient(160deg, #3a1a1a, #1a0d0d); border-color: rgba(255,46,77,.28); opacity: .6; }
+
+/* ---------- TOWERS ---------- */
+.towers-tower { display: flex; flex-direction: column-reverse; gap: 6px; }
+/* БАГ (исправлено): раньше opacity:.45 висело на КАЖДОМ ряду, кроме
+   .towers-row-active — а до старта раунда активного ряда попросту нет
+   (this.active === false), поэтому приглушёнными оказывались все 8 рядов
+   сразу и доска выглядела как "пустой экран". Теперь по умолчанию ряды
+   полностью видимы; приглушаем (towers-row-dim) только будущие ряды И
+   только пока раунд реально идёт — до старта и после его завершения все
+   ряды показываются чётко. */
+.towers-row { display: flex; gap: 6px; opacity: 1; }
+.towers-row-dim { opacity: .45; }
+.towers-tile {
+  flex: 1; height: 40px;
+  background: linear-gradient(160deg, #22223c, #14141f);
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 10px;
+  /* Убирает встроенную ~300мс задержку между тапом и событием click в
+     мобильных браузерах/вебвью (двойной тап = зум) — без этого на части
+     устройств реакция на нажатие ощутимо запаздывает. */
+  touch-action: manipulation;
+}
+.towers-row-active .towers-tile:active { transform: scale(.95); }
+/* Мгновенная реакция на тап, выставляется в JS сразу по click, ещё до
+   ответа сервера (см. renderTower в games.js) — так плитка визуально
+   "нажимается" сразу, а не только когда прилетит результат хода. */
+.towers-tile-pending {
+  transform: scale(.95);
+  border-color: rgba(0,246,255,.55);
+  box-shadow: 0 0 0 2px rgba(0,246,255,.25) inset;
+}
+/* Блокируем повторные тапы по ряду сразу после первого — до перерисовки
+   доски результатом хода (не полагаемся на busy-флаг + отрисовку, которая
+   тоже ждёт ответа сети). */
+.towers-row-locked { pointer-events: none; }
+.towers-tile-cleared {
+  background: linear-gradient(160deg, #1a2a24, #101812);
+  border-color: rgba(255,255,255,.08);
+  font-size: 1rem;
+}
+/* Плитка, которую игрок реально выбрал в пройденном ряду — выделяем ярче
+   остальных, чтобы было видно именно её, а не просто "весь ряд позеленел". */
+.towers-tile-picked {
+  background: linear-gradient(160deg, #123a2a, #0d1f18);
+  border-color: rgba(47,224,138,.55);
+  box-shadow: 0 0 10px rgba(47,224,138,.25) inset;
+}
+/* Мина в пройденном ряду — теперь сервер отдаёт её позицию сразу после
+   успешного шага (см. towersPick), поэтому можно показать, где она была.
+   Стиль намеренно приглушённый — это история, а не "вы только что взорвались". */
+.towers-tile-bomb-revealed {
+  background: linear-gradient(160deg, #3a1a1a, #1a0d0d);
+  border-color: rgba(255,46,77,.3);
+  opacity: .65;
+}
+.towers-tile-bomb { background: linear-gradient(160deg, #4a1414, #250a0a); border-color: rgba(255,46,77,.6); font-size: 1rem; }
+/* Мина в НЕ пройденном ряду — показывается только после проигрыша (когда
+   сервер прислал полный расклад res.layout). Стиль приглушённее, чем
+   .towers-tile-bomb-revealed ("могло бы случиться", а не реальный ход), но
+   БЕЗ opacity на весь элемент — opacity гасил не только фон, но и сам эмодзи
+   💣, из-за чего на пёстром фоне мины были практически не видны. Приглушаем
+   только фон/рамку через rgba, эмодзи остаётся полностью непрозрачным. */
+.towers-tile-bomb-future {
+  background: linear-gradient(160deg, rgba(74,20,20,.55), rgba(37,10,10,.55));
+  border: 1px solid rgba(255,46,77,.4);
+  font-size: 1rem;
+}
+
+/* ---------- PLINKO ---------- */
+.plinko-board {
+  position: relative;
+  height: 220px;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(0,246,255,.06), transparent 60%),
+    linear-gradient(180deg, #0d0d1a, #08080f);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 18px;
+  padding: 16px 8px 10px;
+  overflow: hidden;
+}
+.plinko-row { display: flex; justify-content: center; gap: 20px; margin-bottom: 18px; }
+.plinko-peg {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff, #9fb4c9 55%, #4a5a72);
+  box-shadow: 0 0 6px rgba(159,180,201,.55);
+}
+.plinko-ball {
+  position: absolute; width: 15px; height: 15px; border-radius: 50%;
+  background: radial-gradient(circle at 30% 28%, #ffd7e8, #ff5fa8 55%, #ff2e88);
+  box-shadow: 0 0 12px rgba(255,46,136,.85), 0 0 3px rgba(255,255,255,.6);
+  transform: translateX(-50%);
+  transition: left .12s cubic-bezier(.3,.6,.4,1), top .12s cubic-bezier(.3,.6,.4,1);
+  z-index: 2;
+}
+.plinko-ball.plinko-ball-landed { animation: plinkoLand .38s ease-out; }
+@keyframes plinkoLand {
+  0%   { transform: translateX(-50%) scale(1); }
+  35%  { transform: translateX(-50%) scale(1.5, .6); }
+  65%  { transform: translateX(-50%) scale(.85, 1.15); }
+  100% { transform: translateX(-50%) scale(1); }
+}
+.plinko-buckets { display: flex; gap: 4px; margin-top: 8px; }
+.plinko-bucket {
+  flex: 1; text-align: center; font-size: .64rem; font-weight: 800;
+  border: 1px solid var(--pb-border, rgba(255,255,255,.1));
+  background: linear-gradient(180deg, var(--pb-bg, rgba(255,255,255,.05)), rgba(0,0,0,.25));
+  border-radius: 8px 8px 4px 4px;
+  padding: 7px 0 6px;
+  color: var(--pb-fg, rgba(255,255,255,.6));
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+.plinko-bucket-hit {
+  transform: translateY(-3px) scale(1.06);
+  box-shadow: 0 0 16px var(--pb-glow, rgba(255,216,61,.55));
+  color: #fff;
+}
+
+/* ---------- UPGRADE ---------- */
+.upgrade-dial-wrap { position: relative; width: 200px; height: 200px; margin: 4px auto 0; }
+.upgrade-dial { width: 100%; height: 100%; overflow: visible; }
+.upgrade-dial-track { fill: none; stroke: rgba(255,255,255,.07); stroke-width: 14; }
+.upgrade-dial-arc { fill: none; stroke-width: 14; stroke-linecap: round; transform: rotate(-90deg); transform-origin: 80px 80px; }
+.upgrade-dial-lose { stroke: #ff2e6e; opacity: .8; }
+.upgrade-dial-win { stroke: #2fe08a; filter: drop-shadow(0 0 6px rgba(47,224,138,.6)); }
+.upgrade-needle {
+  stroke: #fff; stroke-width: 3.5; stroke-linecap: round;
+  transform: rotate(0deg); transform-origin: 80px 80px;
+  transition: transform 1.7s cubic-bezier(.14,.68,.15,1);
+  filter: drop-shadow(0 0 6px rgba(255,255,255,.6));
+}
+.upgrade-needle-hub { fill: #fff; filter: drop-shadow(0 0 6px rgba(255,255,255,.5)); }
+.upgrade-dial-center {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; pointer-events: none;
+}
+.upgrade-mult { font-size: 1.55rem; font-weight: 900; font-style: italic; color: #ffd83d; text-shadow: 0 0 14px rgba(255,216,61,.5); }
+.upgrade-status { font-size: .68rem; color: rgba(255,255,255,.5); font-weight: 700; margin-top: 2px; text-align: center; padding: 0 12px; }
+
+.upgrade-chance-value { font-weight: 800; color: #00f6ff; font-size: .85rem; }
+.upgrade-slider {
+  width: 100%; -webkit-appearance: none; appearance: none;
+  height: 6px; border-radius: 999px;
+  background: linear-gradient(90deg, #2fe08a, #ffd83d, #ff2e6e);
+}
+.upgrade-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%;
+  background: #fff; border: 3px solid #00f6ff; box-shadow: 0 0 10px rgba(0,246,255,.6); cursor: pointer;
+}
+.upgrade-slider::-moz-range-thumb {
+  width: 20px; height: 20px; border-radius: 50%; background: #fff;
+  border: 3px solid #00f6ff; box-shadow: 0 0 10px rgba(0,246,255,.6); cursor: pointer;
+}
+
+/* ---------- WHEEL ---------- */
+.wheel-wrap { position: relative; width: 232px; height: 232px; margin: 4px auto 0; }
+.wheel-pointer {
+  position: absolute; top: -8px; left: 50%; transform: translateX(-50%);
+  font-size: 1.5rem; color: #ff2e88; filter: drop-shadow(0 0 8px rgba(255,46,136,.8)); z-index: 5;
+}
+.wheel-disc {
+  position: relative;
+  width: 100%; height: 100%; border-radius: 50%;
+  border: 5px solid rgba(255,255,255,.14);
+  box-shadow: 0 0 28px rgba(176,38,255,.3), inset 0 0 20px rgba(0,0,0,.4);
+  transition: transform 3.4s cubic-bezier(.1,.66,.1,1);
+}
+.wheel-disc::after {
+  content: ''; position: absolute; inset: 0; margin: auto; width: 34px; height: 34px;
+  border-radius: 50%; background: #0c0c16; border: 3px solid rgba(255,255,255,.2);
+}

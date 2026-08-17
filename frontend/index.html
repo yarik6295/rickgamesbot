@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Bulkster Games — демо (виртуальный баланс)</title>
+
+<!-- Telegram WebApp SDK -->
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          bg: '#0a0a12',
+          surface: '#12121f',
+          surface2: '#1a1a2e',
+          neon: '#00f6ff',
+          neon2: '#b026ff',
+          neon3: '#ff2e88',
+          gold: '#ffd83d',
+        },
+        boxShadow: {
+          neon: '0 0 8px rgba(0,246,255,.6), 0 0 24px rgba(0,246,255,.25)',
+          neonPink: '0 0 8px rgba(255,46,136,.6), 0 0 24px rgba(255,46,136,.25)',
+          neonGold: '0 0 10px rgba(255,216,61,.7), 0 0 28px rgba(255,216,61,.3)',
+        },
+      },
+    },
+  };
+</script>
+
+<!-- Версия в query-параметре (?v=) — намеренный cache-bust. Telegram WebView
+     (особенно в десктоп-клиенте) очень агрессивно кэширует статику Mini App
+     по URL; без смены URL обновлённые css/js после деплоя иногда НЕ подтягиваются,
+     и пользователь продолжает видеть старое поведение, хотя на сервере уже
+     лежат новые файлы. При каждом деплое с правками фронтенда — увеличивайте
+     это число (APP_VERSION ниже и во всех тегах). -->
+<link rel="stylesheet" href="css/style.css?v=3" />
+</head>
+<body class="bg-bg text-white min-h-screen font-sans overflow-x-hidden">
+
+<!-- ============ ФОНОВЫЕ ЭФФЕКТЫ ============ -->
+<div class="fixed inset-0 pointer-events-none bg-grid opacity-30"></div>
+<div class="fixed inset-0 pointer-events-none bg-gradient-radial"></div>
+
+<!-- ============ ШАПКА ============ -->
+<header class="sticky top-0 z-30 backdrop-blur-md bg-bg/70 border-b border-white/5 px-4 py-3 flex items-center justify-between">
+  <div class="flex items-center gap-2">
+    <span class="text-xl">🐸</span>
+    <h1 id="app-title" class="font-extrabold text-lg tracking-tight">Gifts Case</h1>
+  </div>
+  <div id="balance-pill" class="flex items-center gap-1.5 bg-surface2 border border-white/10 rounded-full pl-3 pr-1.5 py-1.5 text-sm font-bold">
+    <span class="text-gold">⭐</span>
+    <button id="btn-topup" title="Пополнить баланс" class="bg-transparent border-0 p-0 text-sm font-bold text-white cursor-pointer">
+      <span id="balance-value">0</span>
+    </button>
+    <button id="btn-topup-plus" title="Пополнить баланс" class="w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 transition text-white text-sm flex items-center justify-center leading-none">➕</button>
+    <button id="btn-daily-bonus" title="Ежедневный бонус" class="w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 transition text-white text-sm flex items-center justify-center leading-none">🎁</button>
+  </div>
+</header>
+<div class="px-4">
+  <p class="text-center text-[11px] text-white/30 mt-1.5 mb-0">Звёзды — виртуальная валюта демо, не покупается и не выводится</p>
+</div>
+
+<main class="px-4 pb-28 pt-4">
+
+  <!-- ============ ЭКРАН: СПИСОК КЕЙСОВ ============ -->
+  <section id="tab-cases" class="tab-panel hidden">
+    <h2 class="section-title">Кейсы</h2>
+    <div id="cases-grid" class="flex flex-col gap-3">
+      <!-- Карточки кейсов рендерятся JS -->
+    </div>
+  </section>
+
+  <!-- ============ ЭКРАН: ИГРЫ (хаб) ============ -->
+  <section id="tab-games" class="tab-panel">
+    <h2 class="section-title">Игры</h2>
+    <div class="games-grid">
+      <div class="game-tile game-tile-crash" data-game="crash">
+        <span class="game-badge badge-live">LIVE</span>
+        <div class="game-tile-icon">🚀</div>
+        <div class="game-tile-name">CRASH</div>
+        <div class="game-tile-sub">Вовремя забери ставку</div>
+      </div>
+      <div class="game-tile game-tile-mines" data-game="mines">
+        <span class="game-badge badge-new">NEW</span>
+        <div class="game-tile-icon">💎</div>
+        <div class="game-tile-name">MINES</div>
+        <div class="game-tile-sub">Звёзды против мин</div>
+      </div>
+      <div class="game-tile game-tile-towers" data-game="towers">
+        <div class="game-tile-icon">🏗️</div>
+        <div class="game-tile-name">TOWERS</div>
+        <div class="game-tile-sub">Поднимись как можно выше</div>
+      </div>
+      <div class="game-tile game-tile-plinko" data-game="plinko">
+        <div class="game-tile-icon">🔴</div>
+        <div class="game-tile-name">PLINKO</div>
+        <div class="game-tile-sub">Куда упадёт шарик?</div>
+      </div>
+      <div class="game-tile game-tile-upgrade" data-game="upgrade">
+        <span class="game-badge badge-new">NEW</span>
+        <div class="game-tile-icon">🎯</div>
+        <div class="game-tile-name">UPGRADE</div>
+        <div class="game-tile-sub">Выбери шанс — рискни подарком</div>
+      </div>
+      <div class="game-tile game-tile-wheel" data-game="wheel">
+        <span class="game-badge badge-new">NEW</span>
+        <div class="game-tile-icon">🎡</div>
+        <div class="game-tile-name">WHEEL</div>
+        <div class="game-tile-sub">Одно вращение — один результат</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ЭКРАН: CRASH ============ -->
+  <section id="tab-game-crash" class="tab-panel hidden">
+    <div class="flex items-center justify-between mb-4">
+      <button class="back-btn btn-back-to-games">←</button>
+      <h2 class="font-extrabold text-lg">Crash</h2>
+      <span class="w-9"></span>
+    </div>
+
+    <!-- История последних раундов — общая для всех игроков -->
+    <div id="crash-history" class="crash-history"></div>
+
+    <div class="crash-stage">
+      <div class="crash-top-row">
+        <span class="crash-live-badge"><span class="crash-live-dot"></span>LIVE</span>
+        <span class="crash-players-badge">👥 <span id="crash-players-count">0</span></span>
+      </div>
+
+      <canvas id="crash-canvas" class="crash-canvas"></canvas>
+
+      <div class="crash-center">
+        <div id="crash-multiplier" class="crash-multiplier">1.00x</div>
+        <div id="crash-status-label" class="crash-status-label">Загрузка раунда…</div>
+      </div>
+
+      <div class="crash-rocket-zone" id="crash-rocket-zone">
+        <div id="crash-airflow" class="crash-airflow">
+          <span class="af" style="--i:0"></span>
+          <span class="af" style="--i:1"></span>
+          <span class="af" style="--i:2"></span>
+          <span class="af" style="--i:3"></span>
+          <span class="af" style="--i:4"></span>
+          <span class="af" style="--i:5"></span>
+          <span class="af" style="--i:6"></span>
+          <span class="af" style="--i:7"></span>
+        </div>
+        <div class="crash-rocket-glow"></div>
+        <div class="crash-rocket" id="crash-rocket">🚀</div>
+      </div>
+    </div>
+
+    <div class="bet-controls">
+      <div class="flex items-center justify-between">
+        <label class="bet-label">Ставка</label>
+        <label id="crash-my-bet-label" class="bet-label crash-my-bet-label" style="display:none">Ваша ставка: <span id="crash-my-bet-amount">0</span> ⭐</label>
+      </div>
+      <div class="bet-input-row">
+        <button id="crash-bet-half" class="crash-mult-btn">½</button>
+        <div class="bet-input-wrap">
+          <input id="crash-bet" type="number" class="bet-input" value="25" min="5" step="5" />
+          <button type="button" class="bet-max-btn" data-target="crash-bet">MAX</button>
+        </div>
+        <button id="crash-bet-double" class="crash-mult-btn">2×</button>
+      </div>
+      <div class="crash-quick-row">
+        <button class="crash-quick-btn selected" data-amt="25">25</button>
+        <button class="crash-quick-btn" data-amt="50">50</button>
+        <button class="crash-quick-btn" data-amt="100">100</button>
+        <button class="crash-quick-btn" data-amt="250">250</button>
+        <button class="crash-quick-btn" data-amt="500">500</button>
+      </div>
+    </div>
+
+    <div class="bet-controls mt-2">
+      <label class="bet-label">Авто-вывод (необязательно)</label>
+      <div class="bet-input-row">
+        <input id="crash-autocashout" type="number" class="bet-input" placeholder="напр. 2.00" min="1.01" step="0.1" />
+        <span class="crash-auto-suffix">×</span>
+      </div>
+    </div>
+
+    <button id="btn-crash-bet" class="btn-primary w-full mt-4 py-3.5 text-base" disabled>Загрузка…</button>
+    <button id="btn-crash-cashout" class="btn-cashout w-full mt-4 py-3.5 text-base hidden">Забрать ×<span id="crash-cashout-mult">1.00</span> (<span id="crash-cashout-potential">0</span> ⭐)</button>
+  </section>
+
+  <!-- ============ ЭКРАН: MINES ============ -->
+  <section id="tab-game-mines" class="tab-panel hidden">
+    <div class="flex items-center justify-between mb-4">
+      <button class="back-btn btn-back-to-games">←</button>
+      <h2 class="font-extrabold text-lg">Mines</h2>
+      <span class="w-9"></span>
+    </div>
+
+    <div id="mines-grid" class="mines-grid"></div>
+
+    <div id="mines-setup" class="mt-4">
+      <label class="bet-label">Ставка</label>
+      <div class="bet-input-row mb-3">
+        <button class="bet-adj" data-adj="-10">−</button>
+        <div class="bet-input-wrap">
+          <input id="mines-bet" type="number" class="bet-input" value="50" min="5" step="5" />
+          <button type="button" class="bet-max-btn" data-target="mines-bet">MAX</button>
+        </div>
+        <button class="bet-adj" data-adj="10">+</button>
+      </div>
+      <label class="bet-label">Количество мин</label>
+      <div class="mines-count-row" id="mines-count-row">
+        <button class="mine-count-btn selected" data-count="3">3</button>
+        <button class="mine-count-btn" data-count="5">5</button>
+        <button class="mine-count-btn" data-count="10">10</button>
+        <button class="mine-count-btn" data-count="15">15</button>
+      </div>
+    </div>
+
+    <button id="btn-mines-start" class="btn-primary w-full mt-4 py-3.5 text-base">Начать раунд ⭐</button>
+    <button id="btn-mines-cashout" class="btn-cashout w-full mt-4 py-3.5 text-base hidden">Забрать <span id="mines-payout">0</span> ⭐ (×<span id="mines-mult">1.00</span>)</button>
+  </section>
+
+  <!-- ============ ЭКРАН: TOWERS ============ -->
+  <section id="tab-game-towers" class="tab-panel hidden">
+    <div class="flex items-center justify-between mb-4">
+      <button class="back-btn btn-back-to-games">←</button>
+      <h2 class="font-extrabold text-lg">Towers</h2>
+      <span class="w-9"></span>
+    </div>
+
+    <div id="towers-tower" class="towers-tower"></div>
+
+    <div id="towers-setup" class="mt-4">
+      <label class="bet-label">Ставка</label>
+      <div class="bet-input-row">
+        <button class="bet-adj" data-adj="-10">−</button>
+        <div class="bet-input-wrap">
+          <input id="towers-bet" type="number" class="bet-input" value="50" min="5" step="5" />
+          <button type="button" class="bet-max-btn" data-target="towers-bet">MAX</button>
+        </div>
+        <button class="bet-adj" data-adj="10">+</button>
+      </div>
+    </div>
+
+    <button id="btn-towers-start" class="btn-primary w-full mt-4 py-3.5 text-base">Начать раунд ⭐</button>
+    <button id="btn-towers-cashout" class="btn-cashout w-full mt-4 py-3.5 text-base hidden">Забрать <span id="towers-payout">0</span> ⭐ (×<span id="towers-mult">1.00</span>)</button>
+  </section>
+
+  <!-- ============ ЭКРАН: PLINKO ============ -->
+  <section id="tab-game-plinko" class="tab-panel hidden">
+    <div class="flex items-center justify-between mb-4">
+      <button class="back-btn btn-back-to-games">←</button>
+      <h2 class="font-extrabold text-lg">Plinko</h2>
+      <span class="w-9"></span>
+    </div>
+
+    <div class="plinko-board" id="plinko-board"></div>
+    <div class="plinko-buckets" id="plinko-buckets"></div>
+
+    <div class="mt-4">
+      <label class="bet-label">Ставка</label>
+      <div class="bet-input-row mb-3">
+        <button class="bet-adj" data-adj="-10">−</button>
+        <div class="bet-input-wrap">
+          <input id="plinko-bet" type="number" class="bet-input" value="50" min="5" step="5" />
+          <button type="button" class="bet-max-btn" data-target="plinko-bet">MAX</button>
+        </div>
+        <button class="bet-adj" data-adj="10">+</button>
+      </div>
+      <label class="bet-label">Риск</label>
+      <div class="mines-count-row" id="plinko-risk-row">
+        <button class="mine-count-btn" data-risk="low">Низкий</button>
+        <button class="mine-count-btn selected" data-risk="medium">Средний</button>
+        <button class="mine-count-btn" data-risk="high">Высокий</button>
+      </div>
+    </div>
+
+    <button id="btn-plinko-play" class="btn-primary w-full mt-4 py-3.5 text-base">Бросить шарик ⭐</button>
+  </section>
+
+  <!-- ============ ЭКРАН: UPGRADE ============ -->
+  <section id="tab-game-upgrade" class="tab-panel hidden">
+    <div class="flex items-center justify-between mb-4">
+      <button class="back-btn btn-back-to-games">←</button>
+      <h2 class="font-extrabold text-lg">Upgrade</h2>
+      <span class="w-9"></span>
+    </div>
+
+    <div class="upgrade-dial-wrap">
+      <svg id="upgrade-dial" viewBox="0 0 160 160" class="upgrade-dial">
+        <circle cx="80" cy="80" r="68" class="upgrade-dial-track" />
+        <circle id="upgrade-dial-lose" cx="80" cy="80" r="68" class="upgrade-dial-arc upgrade-dial-lose" />
+        <circle id="upgrade-dial-win" cx="80" cy="80" r="68" class="upgrade-dial-arc upgrade-dial-win" />
+        <line id="upgrade-needle" x1="80" y1="80" x2="80" y2="16" class="upgrade-needle" />
+        <circle cx="80" cy="80" r="7" class="upgrade-needle-hub" />
+      </svg>
+      <div class="upgrade-dial-center">
+        <div id="upgrade-mult-display" class="upgrade-mult">×1.02</div>
+        <div id="upgrade-status-label" class="upgrade-status">Выбери шанс</div>
+      </div>
+    </div>
+
+    <div class="mt-4">
+      <div class="flex items-center justify-between">
+        <label class="bet-label">Шанс победы</label>
+        <span id="upgrade-chance-value" class="upgrade-chance-value">50%</span>
+      </div>
+      <input id="upgrade-chance-slider" type="range" min="2" max="90" value="50" step="1" class="upgrade-slider mt-2" />
+      <div class="mines-count-row mt-2">
+        <button class="mine-count-btn" data-chance="10">10%</button>
+        <button class="mine-count-btn" data-chance="25">25%</button>
+        <button class="mine-count-btn selected" data-chance="50">50%</button>
+        <button class="mine-count-btn" data-chance="75">75%</button>
+        <button class="mine-count-btn" data-chance="90">90%</button>
+      </div>
+    </div>
+
+    <div class="mt-4">
+      <label class="bet-label">Ставка</label>
+      <div id="upgrade-coins-stake" class="bet-input-row mt-2">
+        <button class="bet-adj" data-adj="-10">−</button>
+        <div class="bet-input-wrap">
+          <input id="upgrade-bet" type="number" class="bet-input" value="50" min="5" step="5" />
+          <button type="button" class="bet-max-btn" data-target="upgrade-bet">MAX</button>
+        </div>
+        <button class="bet-adj" data-adj="10">+</button>
+      </div>
+    </div>
+
+    <button id="btn-upgrade-play" class="btn-primary w-full mt-4 py-3.5 text-base">Начать раунд 🎯</button>
+
+    <div id="upgrade-result" class="hidden mt-4 result-card">
+      <p id="upgrade-result-title" class="text-center font-bold text-base mb-1"></p>
+      <p id="upgrade-result-sub" class="text-center text-white/50 text-sm"></p>
+    </div>
+  </section>
+
+  <!-- ============ ЭКРАН: WHEEL ============ -->
+  <section id="tab-game-wheel" class="tab-panel hidden">
+    <div class="flex items-center justify-between mb-4">
+      <button class="back-btn btn-back-to-games">←</button>
+      <h2 class="font-extrabold text-lg">Wheel</h2>
+      <span class="w-9"></span>
+    </div>
+
+    <div class="wheel-wrap">
+      <div class="wheel-pointer">▼</div>
+      <div id="wheel-disc" class="wheel-disc"></div>
+    </div>
+
+    <div class="bet-controls mt-4">
+      <label class="bet-label">Ставка</label>
+      <div class="bet-input-row">
+        <button class="bet-adj" data-adj="-10">−</button>
+        <div class="bet-input-wrap">
+          <input id="wheel-bet" type="number" class="bet-input" value="50" min="5" step="5" />
+          <button type="button" class="bet-max-btn" data-target="wheel-bet">MAX</button>
+        </div>
+        <button class="bet-adj" data-adj="10">+</button>
+      </div>
+    </div>
+
+    <button id="btn-wheel-play" class="btn-primary w-full mt-4 py-3.5 text-base">Крутить колесо 🎡</button>
+
+    <div id="wheel-result" class="hidden mt-4 result-card">
+      <p id="wheel-result-title" class="text-center font-bold text-base mb-1"></p>
+      <p id="wheel-result-sub" class="text-center text-white/50 text-sm"></p>
+    </div>
+  </section>
+
+  <!-- ============ ЭКРАН: ЛИДЕРЫ (заглушка) ============ -->
+  <section id="tab-leaders" class="tab-panel hidden">
+    <h2 class="section-title">Лидеры</h2>
+    <div class="stub-card">
+      <div class="stub-icon">🏆</div>
+      <h3 class="font-bold text-base mb-1">Таблица лидеров в разработке</h3>
+      <p class="text-white/45 text-sm">Лучшие игроки недели будут отображаться здесь.</p>
+    </div>
+  </section>
+
+  <!-- ============ ЭКРАН: ОТКРЫТИЕ КЕЙСА / РУЛЕТКА ============ -->
+  <section id="tab-roulette" class="tab-panel hidden">
+    <div class="flex items-center justify-between mb-4">
+      <button id="btn-back-to-cases" class="back-btn">←</button>
+      <h2 id="roulette-case-name" class="font-extrabold text-lg"></h2>
+      <span class="w-9"></span>
+    </div>
+
+    <div class="roulette-wrap">
+      <div class="roulette-pointer"></div>
+      <div class="roulette-viewport">
+        <div id="roulette-track" class="roulette-track"></div>
+      </div>
+      <div class="roulette-fade-l"></div>
+      <div class="roulette-fade-r"></div>
+    </div>
+
+    <div id="roulette-result" class="hidden mt-5 result-card">
+      <p class="text-center text-white/50 text-sm mb-2">Вы выиграли</p>
+      <div id="result-item-display" class="flex flex-col items-center gap-2"></div>
+      <button id="btn-result-ok" class="btn-primary w-full mt-4">Отлично!</button>
+    </div>
+
+    <button id="btn-open-case" class="btn-primary w-full mt-6 py-3.5 text-base">Открыть за 0 ⭐</button>
+  </section>
+
+  <!-- ============ ЭКРАН: ПРОФИЛЬ ============ -->
+  <section id="tab-profile" class="tab-panel hidden">
+    <h2 class="section-title">Профиль</h2>
+    <div class="surface-card p-5 text-center">
+      <img id="profile-avatar" class="w-20 h-20 rounded-full mx-auto mb-3 border-2 border-neon shadow-neon object-cover" src="" alt="" />
+      <h3 id="profile-name" class="font-bold text-lg"></h3>
+      <p id="profile-username" class="text-white/40 text-sm mb-4"></p>
+      <div class="grid grid-cols-3 gap-2 text-center">
+        <div class="stat-box"><span id="profile-level" class="stat-value">1</span><span class="stat-label">Уровень</span></div>
+        <div class="stat-box"><span id="profile-cases" class="stat-value">0</span><span class="stat-label">Кейсов</span></div>
+        <div class="stat-box"><span id="profile-balance" class="stat-value">0</span><span class="stat-label">⭐ Баланс</span></div>
+      </div>
+    </div>
+    <h4 class="font-semibold mt-5 mb-2 text-white/70 text-sm">История транзакций</h4>
+    <div id="tx-list" class="flex flex-col gap-1.5"></div>
+  </section>
+
+</main>
+
+<!-- ============ НИЖНЯЯ НАВИГАЦИЯ ============ -->
+<nav id="bottom-nav" class="bottom-nav">
+  <button data-tab="leaders" class="nav-btn">
+    <span class="nav-icon">🏆</span><span class="nav-label">Лидеры</span>
+  </button>
+  <button data-tab="games" class="nav-btn active">
+    <span class="nav-icon">🎮</span><span class="nav-label">Игры</span>
+  </button>
+  <button data-tab="cases" class="nav-btn">
+    <span class="nav-icon">🎁</span><span class="nav-label">Кейсы</span>
+  </button>
+  <button data-tab="profile" class="nav-btn">
+    <span class="nav-icon">👤</span><span class="nav-label">Профиль</span>
+  </button>
+</nav>
+
+<!-- ============ МОДАЛКА ЕЖЕДНЕВНОГО БОНУСА (единственный способ пополнения) ============ -->
+<div id="daily-bonus-modal" class="modal-overlay hidden">
+  <div class="modal-card text-center">
+    <div class="text-5xl mb-2">🎁</div>
+    <h3 class="font-bold text-lg mb-2">Ежедневный бонус</h3>
+    <p id="daily-bonus-text" class="text-white/50 text-sm mb-4">Забирайте бесплатные звёзды раз в 24 часа</p>
+    <div class="flex gap-2">
+      <button id="btn-daily-bonus-cancel" class="flex-1 btn-secondary">Закрыть</button>
+      <button id="btn-daily-bonus-claim" class="flex-1 btn-primary">Забрать</button>
+    </div>
+  </div>
+</div>
+
+<div id="topup-modal" class="modal-overlay hidden">
+  <div class="modal-card text-center">
+    <div class="text-5xl mb-2">⭐</div>
+    <h3 class="font-bold text-lg mb-2">Пополнить баланс</h3>
+    <p class="text-white/50 text-sm mb-4">Демо-звёзды, вводите любую сумму</p>
+    <input id="topup-amount-input" type="number" inputmode="numeric" min="1" step="1" placeholder="Сумма звёзд"
+      class="w-full mb-4 px-4 py-3 rounded-xl bg-surface2 border border-white/10 text-center text-lg font-bold text-white focus:outline-none focus:border-white/30" />
+    <div class="flex gap-2">
+      <button id="btn-topup-cancel" class="flex-1 btn-secondary">Закрыть</button>
+      <button id="btn-topup-confirm" class="flex-1 btn-primary">Пополнить</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ ТОСТ-УВЕДОМЛЕНИЯ ============ -->
+<div id="toast" class="toast hidden"></div>
+
+<script src="js/telegram.js?v=3"></script>
+<script src="js/api.js?v=3"></script>
+<script src="js/roulette.js?v=3"></script>
+<script src="js/app.js?v=3"></script>
+<script src="js/games.js?v=3"></script>
+</body>
+</html>
