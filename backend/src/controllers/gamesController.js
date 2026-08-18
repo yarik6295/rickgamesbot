@@ -30,25 +30,85 @@ function validateBet(bet, userBalance) {
 }
 
 // executor — db по умолчанию, либо tx внутри db.transaction(async (tx) => {...})
+//
+// ВАЖНО (исправлена дыра в безопасности): раньше списание делалось в ДВА
+// отдельных шага — SELECT текущего баланса, потом отдельный UPDATE с уже
+// посчитанным на клиенте Node.js значением. Это классический TOCTOU:
+// между чтением и записью есть реальный сетевой промежуток (запрос к
+// удалённой Turso), и если в этот промежуток прилетал второй параллельный
+// запрос на списание того же пользователя (например, почти одновременный
+// старт Mines и Towers, или дублирующийся клик, обошедший фронтовый
+// busy-флаг), оба запроса читали ОДИН и тот же исходный баланс, оба
+// проходили проверку "хватает ли звёзд" и оба писали свой независимый
+// UPDATE — итоговый баланс отражал только ПОСЛЕДНИЙ из них ("потерянное
+// обновление"). На практике это означало, что казино можно было обмануть:
+// заплатить один раз, а фактически задействовать баланс в двух раундах
+// сразу, либо получить более высокий баланс, чем должно быть после серии
+// ставок.
+//
+// ИСПРАВЛЕНИЕ: списание/начисление теперь одно атомарное SQL-выражение
+// (`UPDATE ... SET coins_balance = coins_balance ± ? WHERE ... RETURNING
+// coins_balance`). Проверка "хватает ли звёзд" встроена прямо в WHERE —
+// значит достаточность баланса и само списание проверяются и происходят
+// в одной неделимой операции на стороне БД, и это физически исключает
+// потерянные обновления при любом количестве параллельных запросов.
+// Заодно это на один сетевой round-trip короче (SELECT+UPDATE → просто
+// UPDATE...RETURNING), что и было основной причиной ощутимой задержки.
 async function debit(userId, amount, type, referenceId = null, executor = db) {
-    const user = await executor.get(`SELECT coins_balance FROM users WHERE id = ?`, [userId]);
-    const newBalance = user.coins_balance - amount;
-    await executor.run(`UPDATE users SET coins_balance = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [newBalance, userId]);
-    await executor.run(`INSERT INTO transactions (user_id, type, amount_coins, balance_after, reference_id) VALUES (?, ?, ?, ?, ?)`,
-        [userId, type, -amount, newBalance, referenceId]);
+    const updated = await executor.get(`
+        UPDATE users SET coins_balance = coins_balance - ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ? AND coins_balance >= ?
+        RETURNING coins_balance
+    `, [amount, userId, amount]);
+
+    if (!updated) {
+        // Либо пользователя не существует, либо (в подавляющем большинстве
+        // случаев) баланса действительно не хватает — проверка на клиенте
+        // (validateBet по кэшированному балансу) это лишь подсказка для UX,
+        // а вот этот запрос — единственный источник истины.
+        throw { status: 402, message: 'Недостаточно звёзд на балансе' };
+    }
+
+    const newBalance = updated.coins_balance;
     touchCachedBalance(userId, newBalance);
+    // Запись в журнал транзакций — аудит/история, на сам баланс уже никак
+    // не влияет (он атомарно списан строкой выше), поэтому вне транзакции
+    // не блокируем ею ответ игроку (fire-and-forget, как и синхронизация
+    // active_rounds в Turso). НО: если debit() вызван ВНУТРИ
+    // db.transaction() (executor = tx, см. Plinko/Upgrade/Wheel/кейсы), эту
+    // запись обязательно нужно дождаться ДО коммита транзакции — иначе
+    // insert может не успеть выполниться до tx.commit() и запись в журнал
+    // потеряется молча (или упадёт в закрытую транзакцию).
+    const logInsert = executor.run(`INSERT INTO transactions (user_id, type, amount_coins, balance_after, reference_id) VALUES (?, ?, ?, ?, ?)`,
+        [userId, type, -amount, newBalance, referenceId]);
+    if (executor === db) {
+        logInsert.catch((err) => console.error('[ledger] Не удалось записать транзакцию списания:', err));
+    } else {
+        await logInsert;
+    }
     return newBalance;
 }
 
 async function credit(userId, amount, type, referenceId = null, executor = db) {
-    const user = await executor.get(`SELECT coins_balance FROM users WHERE id = ?`, [userId]);
-    const newBalance = user.coins_balance + amount;
-    await executor.run(`UPDATE users SET coins_balance = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [newBalance, userId]);
-    if (amount > 0) {
-        await executor.run(`INSERT INTO transactions (user_id, type, amount_coins, balance_after, reference_id) VALUES (?, ?, ?, ?, ?)`,
-            [userId, type, amount, newBalance, referenceId]);
-    }
+    const updated = await executor.get(`
+        UPDATE users SET coins_balance = coins_balance + ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+        RETURNING coins_balance
+    `, [amount, userId]);
+
+    const newBalance = updated.coins_balance;
     touchCachedBalance(userId, newBalance);
+    if (amount > 0) {
+        // См. комментарий в debit() выше — тот же принцип: fire-and-forget
+        // только вне транзакции, внутри db.transaction() обязательно ждём.
+        const logInsert = executor.run(`INSERT INTO transactions (user_id, type, amount_coins, balance_after, reference_id) VALUES (?, ?, ?, ?, ?)`,
+            [userId, type, amount, newBalance, referenceId]);
+        if (executor === db) {
+            logInsert.catch((err) => console.error('[ledger] Не удалось записать транзакцию начисления:', err));
+        } else {
+            await logInsert;
+        }
+    }
     return newBalance;
 }
 
@@ -118,11 +178,21 @@ async function minesStart(req, res) {
         const mines = generateMinePositions(gridSize, mineCount);
         const serverSeed = crypto.randomBytes(16).toString('hex');
 
-        const newBalance = await debit(user.id, bet, 'game_bet');
-
+        // Бронируем слот активного раунда СИНХРОННО, до await debit() — см.
+        // подробный комментарий у Crash.placeBet() в crashEngine.js: та же
+        // гонка (двойной клик/параллельный запрос мог списать ставку дважды
+        // за один раунд, пока идёт поход в БД за списанием) актуальна и тут.
         activeRounds.set(user.id, 'mines', {
             bet, gridSize, mineCount, mines, revealed: [], serverSeed,
         });
+
+        let newBalance;
+        try {
+            newBalance = await debit(user.id, bet, 'game_bet');
+        } catch (err) {
+            activeRounds.remove(user.id, 'mines');
+            throw err;
+        }
 
         // Запись в Turso нужна только для восстановления состояния после
         // перезагрузки страницы — сам раунд её не ждёт (см. коммент выше).
@@ -288,12 +358,21 @@ async function towersStart(req, res) {
         const layout = generateTowerLayout(TOWERS_ROWS, TOWERS_TILES_PER_ROW, TOWERS_BOMBS_PER_ROW);
         const serverSeed = crypto.randomBytes(16).toString('hex');
 
-        const newBalance = await debit(user.id, bet, 'game_bet');
-
+        // См. комментарий у minesStart() выше / Crash.placeBet() — бронируем
+        // слот раунда до похода в БД за списанием, чтобы исключить двойное
+        // списание при параллельных запросах.
         activeRounds.set(user.id, 'towers', {
             bet, rows: TOWERS_ROWS, tilesPerRow: TOWERS_TILES_PER_ROW, bombsPerRow: TOWERS_BOMBS_PER_ROW,
             layout, revealed: [], serverSeed,
         });
+
+        let newBalance;
+        try {
+            newBalance = await debit(user.id, bet, 'game_bet');
+        } catch (err) {
+            activeRounds.remove(user.id, 'towers');
+            throw err;
+        }
 
         db.run(`
             INSERT INTO active_rounds (user_id, game_type, bet_coins, config, hidden_state, revealed, server_seed)

@@ -36,25 +36,44 @@ const state = {
     players: new Map(),
 };
 
+// См. подробный комментарий у debit()/credit() в gamesController.js — та
+// же самая уязвимость (SELECT-затем-UPDATE давал окно для потерянного
+// обновления при параллельных запросах) и то же исправление: одно
+// атомарное UPDATE...RETURNING вместо чтения-затем-записи, с проверкой
+// достаточности баланса прямо в WHERE.
 async function ledgerDebit(userId, amount, type, referenceId) {
-    const user = await db.get(`SELECT coins_balance FROM users WHERE id = ?`, [userId]);
-    const newBalance = user.coins_balance - amount;
-    await db.run(`UPDATE users SET coins_balance = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [newBalance, userId]);
-    await db.run(`INSERT INTO transactions (user_id, type, amount_coins, balance_after, reference_id) VALUES (?, ?, ?, ?, ?)`,
-        [userId, type, -amount, newBalance, referenceId || null]);
+    const updated = await db.get(`
+        UPDATE users SET coins_balance = coins_balance - ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ? AND coins_balance >= ?
+        RETURNING coins_balance
+    `, [amount, userId, amount]);
+
+    if (!updated) {
+        throw { status: 402, message: 'Недостаточно звёзд на балансе' };
+    }
+
+    const newBalance = updated.coins_balance;
     touchCachedBalance(userId, newBalance);
+    db.run(`INSERT INTO transactions (user_id, type, amount_coins, balance_after, reference_id) VALUES (?, ?, ?, ?, ?)`,
+        [userId, type, -amount, newBalance, referenceId || null])
+        .catch((err) => console.error('[crashEngine] Не удалось записать транзакцию списания:', err));
     return newBalance;
 }
 
 async function ledgerCredit(userId, amount, type, referenceId) {
-    const user = await db.get(`SELECT coins_balance FROM users WHERE id = ?`, [userId]);
-    const newBalance = user.coins_balance + amount;
-    await db.run(`UPDATE users SET coins_balance = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [newBalance, userId]);
-    if (amount > 0) {
-        await db.run(`INSERT INTO transactions (user_id, type, amount_coins, balance_after, reference_id) VALUES (?, ?, ?, ?, ?)`,
-            [userId, type, amount, newBalance, referenceId || null]);
-    }
+    const updated = await db.get(`
+        UPDATE users SET coins_balance = coins_balance + ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+        RETURNING coins_balance
+    `, [amount, userId]);
+
+    const newBalance = updated.coins_balance;
     touchCachedBalance(userId, newBalance);
+    if (amount > 0) {
+        db.run(`INSERT INTO transactions (user_id, type, amount_coins, balance_after, reference_id) VALUES (?, ?, ?, ?, ?)`,
+            [userId, type, amount, newBalance, referenceId || null])
+            .catch((err) => console.error('[crashEngine] Не удалось записать транзакцию начисления:', err));
+    }
     return newBalance;
 }
 
@@ -146,7 +165,14 @@ async function placeBet(user, betRaw) {
         throw { status: 409, message: 'Вы уже поставили в этом раунде' };
     }
     const bet = validateBet(betRaw, user.coins_balance);
-    const newBalance = await ledgerDebit(user.id, bet, 'game_bet');
+
+    // Бронируем место в раунде СИНХРОННО, до await ledgerDebit() — без
+    // этого два почти одновременных запроса на ставку от одного игрока
+    // (двойной клик, гонка сети и т.п.) оба проходили бы проверку
+    // "players.has(user.id)" выше (в обоих ещё false) и оба успевали бы
+    // списать баланс, прежде чем кто-то из них попадёт в state.players —
+    // то есть можно было списать ставку дважды, а зарегистрироваться в
+    // раунде только один раз.
     state.players.set(user.id, {
         bet,
         cashedOut: false,
@@ -154,7 +180,16 @@ async function placeBet(user, betRaw) {
         payout: 0,
         username: user.username || user.first_name || 'Игрок',
     });
-    return { newBalance, roundId: state.roundId };
+
+    try {
+        const newBalance = await ledgerDebit(user.id, bet, 'game_bet');
+        return { newBalance, roundId: state.roundId };
+    } catch (err) {
+        // Списание не удалось (баланса реально не хватило, хоть проверка
+        // по кэшу выше это и пропустила) — откатываем бронь места.
+        state.players.delete(user.id);
+        throw err;
+    }
 }
 
 async function cashout(user, requestedAt, requestedMultiplier) {

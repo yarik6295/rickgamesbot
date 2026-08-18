@@ -86,11 +86,23 @@ async function openCase(req, res) {
             `, [caseRow.id]);
             if (items.length === 0) throw { status: 500, message: 'У кейса не настроен пул наград' };
 
-            // Списание цены кейса (бесплатный кейс — цена 0, списывать нечего)
+            // Списание цены кейса (бесплатный кейс — цена 0, списывать нечего).
+            // Атомарное UPDATE...RETURNING с проверкой баланса прямо в WHERE —
+            // как и в debit()/credit() из gamesController.js (см. подробный
+            // комментарий там), это исключает потерянные обновления при
+            // параллельных запросах, даже несмотря на то что тут всё и так
+            // внутри транзакции: сама проверка "хватает ли звёзд" должна быть
+            // частью одной неделимой операции с самим списанием, а не
+            // отдельным чтением до неё.
             let balanceAfterDebit = user.coins_balance;
             if (caseRow.price_coins > 0) {
-                balanceAfterDebit = user.coins_balance - caseRow.price_coins;
-                await tx.run(`UPDATE users SET coins_balance = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [balanceAfterDebit, user.id]);
+                const debited = await tx.get(`
+                    UPDATE users SET coins_balance = coins_balance - ?, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ? AND coins_balance >= ?
+                    RETURNING coins_balance
+                `, [caseRow.price_coins, user.id, caseRow.price_coins]);
+                if (!debited) throw { status: 402, message: 'Недостаточно звёзд на балансе' };
+                balanceAfterDebit = debited.coins_balance;
                 await tx.run(`
                     INSERT INTO transactions (user_id, type, amount_coins, balance_after, reference_id)
                     VALUES (?, 'case_open', ?, ?, ?)
@@ -99,9 +111,13 @@ async function openCase(req, res) {
 
             const { item: wonTier, rollValue, serverSeed } = rollWeightedItem(items);
 
-            // Выигрыш сразу зачисляется на баланс
-            const newBalance = balanceAfterDebit + wonTier.value_coins;
-            await tx.run(`UPDATE users SET coins_balance = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [newBalance, user.id]);
+            // Выигрыш сразу зачисляется на баланс — тоже атомарным инкрементом.
+            const credited = await tx.get(`
+                UPDATE users SET coins_balance = coins_balance + ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                RETURNING coins_balance
+            `, [wonTier.value_coins, user.id]);
+            const newBalance = credited.coins_balance;
             await tx.run(`
                 INSERT INTO transactions (user_id, type, amount_coins, balance_after, reference_id)
                 VALUES (?, 'case_open', ?, ?, ?)
