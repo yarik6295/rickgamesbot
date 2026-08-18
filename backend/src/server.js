@@ -21,6 +21,7 @@ async function start() {
     const casesRoutes = require('./routes/cases.routes');
     const userRoutes = require('./routes/user.routes');
     const gamesRoutes = require('./routes/games.routes');
+    const leaderboardRoutes = require('./routes/leaderboard.routes');
 
     const app = express();
     const PORT = process.env.PORT || 3000;
@@ -36,6 +37,7 @@ async function start() {
     app.use('/api/cases', casesRoutes);
     app.use('/api/user', userRoutes);
     app.use('/api/games', gamesRoutes);
+    app.use('/api/leaderboard', leaderboardRoutes);
 
     app.get('/api/health', (req, res) => res.json({ status: 'ok', ts: Date.now() }));
 

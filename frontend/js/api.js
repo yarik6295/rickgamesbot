@@ -63,4 +63,7 @@ const Api = {
 
   // ---- Wheel ----
   wheelPlay: (bet) => apiRequest('/games/wheel/play', { method: 'POST', body: { bet } }),
+
+  // ---- Leaderboard ----
+  getLeaderboard: (period) => apiRequest(`/leaderboard?period=${period === 'week' ? 'week' : 'all'}`),
 };

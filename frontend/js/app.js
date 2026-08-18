@@ -10,6 +10,8 @@ const state = {
   profile: null,
   isSpinning: false,
   caseItemsCache: {}, // slug -> items[]; прогревается в фоне, см. prefetchCaseItems()
+  leadersPeriod: 'all',
+  leadersLoadedFor: null, // какой период уже загружен, чтобы не дёргать API повторно без нужды
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -52,6 +54,7 @@ function switchTab(tabName) {
   document.querySelector(`.nav-btn[data-tab="${tabName}"]`)?.classList.add('active');
 
   if (tabName === 'profile') loadProfile();
+  if (tabName === 'leaders') loadLeaders();
 }
 window.switchTab = switchTab;
 
@@ -288,7 +291,87 @@ $('#btn-result-ok').addEventListener('click', () => {
   loadCases();
 });
 
-/* ============================= ПРОФИЛЬ ============================= */
+/* ============================= ЛИДЕРЫ ============================= */
+
+function leaderAvatarUrl(l) {
+  // Фолбэк тот же, что и в профиле (см. loadProfile) — генерируем
+  // стабильную аватарку по имени, если у игрока нет photo_url (Telegram
+  // отдаёт его не всегда — например, если у пользователя приватность
+  // фото ограничена).
+  return l.photoUrl || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + encodeURIComponent(l.firstName || 'player');
+}
+
+function renderLeaderRow(l, extraClass = '') {
+  const topClass = l.rank === 1 ? 'top-1' : l.rank === 2 ? 'top-2' : l.rank === 3 ? 'top-3' : '';
+  const el = document.createElement('div');
+  el.className = `leader-card ${topClass} ${extraClass}`.trim();
+  const medal = l.rank === 1 ? '🥇' : l.rank === 2 ? '🥈' : l.rank === 3 ? '🥉' : l.rank;
+  el.innerHTML = `
+    <div class="leaders-row">
+      <span class="leaders-rank">${medal}</span>
+      <img class="leaders-avatar" src="${leaderAvatarUrl(l)}" alt="" />
+      <span class="leaders-name">${l.isYou ? 'Вы' : escapeHtml(l.firstName)}</span>
+      <span class="leaders-total">${l.totalWagered.toLocaleString('ru-RU')} ⭐</span>
+    </div>
+  `;
+  return el;
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+async function loadLeaders(force = false) {
+  const period = state.leadersPeriod;
+  if (!force && state.leadersLoadedFor === period) return;
+
+  const list = $('#leaders-list');
+  const meCard = $('#leaders-me-card');
+  const empty = $('#leaders-empty');
+  list.innerHTML = '<div class="leader-card-skeleton"></div><div class="leader-card-skeleton"></div><div class="leader-card-skeleton"></div>';
+  empty.classList.add('hidden');
+  meCard.classList.add('hidden');
+
+  try {
+    const { leaders, me } = await Api.getLeaderboard(period);
+    state.leadersLoadedFor = period;
+
+    list.innerHTML = '';
+    if (leaders.length === 0) {
+      empty.classList.remove('hidden');
+    } else {
+      leaders.forEach((l) => list.appendChild(renderLeaderRow(l)));
+    }
+
+    // "Твоя позиция" показываем отдельной карточкой сверху ТОЛЬКО если ты
+    // не попал в отображённый топ (иначе это просто задвоение своей же
+    // строки, которая и так видна в списке).
+    if (me && me.outsideTop) {
+      $('#leaders-me-rank').textContent = me.rank;
+      $('#leaders-me-avatar').src = leaderAvatarUrl(me);
+      $('#leaders-me-name').textContent = 'Вы';
+      $('#leaders-me-total').textContent = `${me.totalWagered.toLocaleString('ru-RU')} ⭐`;
+      meCard.classList.remove('hidden');
+    }
+  } catch (e) {
+    list.innerHTML = '';
+    showToast(e.message, 'error');
+  }
+}
+
+$$('.leaders-period-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    if (btn.classList.contains('selected')) return;
+    $$('.leaders-period-btn').forEach((b) => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    state.leadersPeriod = btn.dataset.period;
+    loadLeaders(true);
+  });
+});
+
+
 
 async function loadProfile() {
   try {

@@ -54,10 +54,11 @@
 <div class="fixed inset-0 pointer-events-none bg-gradient-radial"></div>
 
 <!-- ============ ШАПКА ============ -->
-<header class="sticky top-0 z-30 backdrop-blur-md bg-bg/70 border-b border-white/5 px-4 py-3 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-  <div></div>
-  <h1 id="app-title" class="brand-logo justify-self-center">RICK GAMES</h1>
-  <div id="balance-pill" class="justify-self-end flex items-center gap-1.5 bg-surface2 border border-white/10 rounded-full pl-3 pr-1.5 py-1.5 text-sm font-bold">
+<header class="sticky top-0 z-30 backdrop-blur-md bg-bg/70 border-b border-white/5 px-4 py-3 flex items-center gap-2">
+  <div class="flex-1 flex justify-center">
+    <h1 id="app-title" class="brand-logo">RICK GAMES</h1>
+  </div>
+  <div id="balance-pill" class="shrink-0 flex items-center gap-1.5 bg-surface2 border border-white/10 rounded-full pl-3 pr-1.5 py-1.5 text-sm font-bold">
     <span class="text-gold">⭐</span>
     <button id="btn-topup" title="Пополнить баланс" class="bg-transparent border-0 p-0 text-sm font-bold text-white cursor-pointer">
       <span id="balance-value">0</span>
@@ -375,15 +376,35 @@
     </div>
   </section>
 
-  <!-- ============ ЭКРАН: ЛИДЕРЫ (заглушка) ============ -->
+  <!-- ============ ЭКРАН: ЛИДЕРЫ ============ -->
   <section id="tab-leaders" class="tab-panel hidden">
     <h2 class="section-title">Лидеры</h2>
-    <div class="stub-card">
+    <p class="text-white/40 text-xs -mt-2.5 mb-3.5">Рейтинг по сумме ставок в играх</p>
+
+    <div class="leaders-period-switch">
+      <button data-period="all" class="leaders-period-btn selected">За всё время</button>
+      <button data-period="week" class="leaders-period-btn">За неделю</button>
+    </div>
+
+    <div id="leaders-me-card" class="leaders-me-card hidden">
+      <span class="leaders-me-label">Вы</span>
+      <div class="leaders-row">
+        <span id="leaders-me-rank" class="leaders-rank">—</span>
+        <img id="leaders-me-avatar" class="leaders-avatar" src="" alt="" />
+        <span id="leaders-me-name" class="leaders-name"></span>
+        <span id="leaders-me-total" class="leaders-total"></span>
+      </div>
+    </div>
+
+    <div id="leaders-list" class="flex flex-col gap-2"></div>
+
+    <div id="leaders-empty" class="stub-card hidden">
       <div class="stub-icon">🏆</div>
-      <h3 class="font-bold text-base mb-1">Таблица лидеров в разработке</h3>
-      <p class="text-white/45 text-sm">Лучшие игроки недели будут отображаться здесь.</p>
+      <h3 class="font-bold text-base mb-1">Пока пусто</h3>
+      <p class="text-white/45 text-sm">Сделайте ставку в любой игре, чтобы попасть в рейтинг.</p>
     </div>
   </section>
+
 
   <!-- ============ ЭКРАН: ОТКРЫТИЕ КЕЙСА / РУЛЕТКА ============ -->
   <section id="tab-roulette" class="tab-panel hidden">
@@ -463,10 +484,10 @@
 <!-- ============ ТОСТ-УВЕДОМЛЕНИЯ ============ -->
 <div id="toast" class="toast hidden"></div>
 
-<script src="js/telegram.js?v=3"></script>
-<script src="js/api.js?v=3"></script>
-<script src="js/roulette.js?v=3"></script>
-<script src="js/app.js?v=3"></script>
-<script src="js/games.js?v=3"></script>
+<script src="js/telegram.js?v=4"></script>
+<script src="js/api.js?v=4"></script>
+<script src="js/roulette.js?v=4"></script>
+<script src="js/app.js?v=4"></script>
+<script src="js/games.js?v=4"></script>
 </body>
 </html>
