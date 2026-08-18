@@ -153,42 +153,92 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   position: relative;
   display: flex; align-items: center; justify-content: space-between;
   border-radius: 20px;
-  padding: 20px;
+  padding: 18px 20px;
   overflow: hidden;
-  min-height: 108px;
-  transition: transform .15s ease;
+  min-height: 100px;
+  background: linear-gradient(160deg, rgba(255,255,255,.05), rgba(255,255,255,.015)), #11111f;
+  border: 1px solid rgba(255,255,255,.08);
+  border-left: 3px solid var(--case-accent, #8b93ff);
+  transition: transform .15s ease, border-color .15s ease;
 }
 .case-row:active { transform: scale(.98); }
+.case-row::after {
+  content: '';
+  position: absolute; top: -34px; right: -22px;
+  width: 150px; height: 150px;
+  background: var(--case-accent, #8b93ff);
+  filter: blur(48px);
+  opacity: .22;
+  border-radius: 50%;
+  z-index: 0;
+  pointer-events: none;
+}
 .case-row .case-info { position: relative; z-index: 2; }
-.case-row .case-name { font-weight: 800; font-size: 1.15rem; letter-spacing: -0.01em; }
+.case-row .case-name { font-weight: 800; font-size: 1.08rem; letter-spacing: -0.01em; }
 .case-row .case-price {
-  margin-top: 6px;
+  margin-top: 7px;
   display: inline-flex; align-items: center; gap: 5px;
-  font-size: .85rem; font-weight: 700;
-  background: rgba(0,0,0,.22);
+  font-size: .8rem; font-weight: 700;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.1);
   padding: 4px 10px;
   border-radius: 999px;
 }
-.case-row .case-icon {
-  font-size: 3.2rem;
-  filter: drop-shadow(0 4px 10px rgba(0,0,0,.35));
+.case-row .case-icon-wrap {
   position: relative; z-index: 2;
+  width: 58px; height: 58px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(circle at 34% 30%, rgba(255,255,255,.28), transparent 60%), var(--case-accent, #8b93ff);
+  box-shadow: 0 0 20px var(--case-glow, rgba(139,147,255,.35));
 }
+.case-row .case-icon { font-size: 1.7rem; position: relative; z-index: 2; filter: drop-shadow(0 2px 4px rgba(0,0,0,.35)); }
 .case-row .case-locked {
   position: absolute; inset: 0; z-index: 3;
-  background: rgba(5,5,10,.72);
+  background: rgba(5,5,10,.78);
   backdrop-filter: blur(2px);
   display: flex; align-items: center; justify-content: center;
   flex-direction: column; gap: 4px;
   font-size: .8rem; font-weight: 600; color: rgba(255,255,255,.75);
 }
 
-/* Цветовые темы карточек — циклически по индексу кейса */
-.case-row.theme-0 { background: linear-gradient(135deg, #454b58, #23262f); }
-.case-row.theme-1 { background: linear-gradient(135deg, #f6ac3c, #c9701a); }
-.case-row.theme-2 { background: linear-gradient(135deg, #ef5757, #a02323); }
-.case-row.theme-3 { background: linear-gradient(135deg, #5a6bef, #7a3ce0); }
-.case-row.theme-4 { background: linear-gradient(135deg, #a53cef, #5f1fc4); }
+/* Цветовые темы карточек — циклически по индексу кейса (акцент, не заливка) */
+.case-row.theme-0 { --case-accent: #8b93ff; --case-glow: rgba(139,147,255,.4); }
+.case-row.theme-1 { --case-accent: #ffd83d; --case-glow: rgba(255,216,61,.4); }
+.case-row.theme-2 { --case-accent: #ff2e88; --case-glow: rgba(255,46,136,.4); }
+.case-row.theme-3 { --case-accent: #00f6ff; --case-glow: rgba(0,246,255,.4); }
+.case-row.theme-4 { --case-accent: #b026ff; --case-glow: rgba(176,38,255,.4); }
+
+/* ---------- Список возможных призов на экране кейса (без указания шансов) ---------- */
+.case-prizes { margin-top: 22px; }
+.case-prizes-title {
+  font-weight: 800;
+  font-size: .95rem;
+  color: rgba(255,255,255,.65);
+  margin-bottom: 10px;
+}
+.case-prizes-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.case-prize-chip {
+  border-radius: 12px;
+  padding: 10px 6px;
+  text-align: center;
+  font-weight: 800;
+  font-size: .82rem;
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.07);
+}
+.case-prize-chip .prize-star { display: block; font-size: 1.05rem; margin-bottom: 2px; }
+.case-prize-chip.rarity-common    { border-color: rgba(160,160,180,.35); }
+.case-prize-chip.rarity-uncommon  { border-color: rgba(0,246,255,.4); box-shadow: 0 0 10px rgba(0,246,255,.12) inset; }
+.case-prize-chip.rarity-rare      { border-color: rgba(0,140,255,.55); box-shadow: 0 0 12px rgba(0,140,255,.16) inset; }
+.case-prize-chip.rarity-epic      { border-color: rgba(176,38,255,.6); box-shadow: 0 0 14px rgba(176,38,255,.2) inset; }
+.case-prize-chip.rarity-legendary { border-color: rgba(255,216,61,.75); box-shadow: 0 0 16px rgba(255,216,61,.25) inset; color: #ffd83d; }
+
 
 /* ---------- Заглушки экранов (Конкурсы / Лидеры) ---------- */
 .stub-card {

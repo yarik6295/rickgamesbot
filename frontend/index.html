@@ -45,7 +45,7 @@
      и пользователь продолжает видеть старое поведение, хотя на сервере уже
      лежат новые файлы. При каждом деплое с правками фронтенда — увеличивайте
      это число (APP_VERSION ниже и во всех тегах). -->
-<link rel="stylesheet" href="css/style.css?v=4" />
+<link rel="stylesheet" href="css/style.css?v=5" />
 </head>
 <body class="bg-bg text-white min-h-screen font-sans overflow-x-hidden">
 
@@ -430,6 +430,11 @@
     </div>
 
     <button id="btn-open-case" class="btn-primary w-full mt-6 py-3.5 text-base">Открыть за 0 ⭐</button>
+
+    <div id="case-prizes" class="case-prizes">
+      <h3 class="case-prizes-title">Возможные призы</h3>
+      <div id="case-prizes-grid" class="case-prizes-grid"></div>
+    </div>
   </section>
 
   <!-- ============ ЭКРАН: ПРОФИЛЬ ============ -->
@@ -484,10 +489,10 @@
 <!-- ============ ТОСТ-УВЕДОМЛЕНИЯ ============ -->
 <div id="toast" class="toast hidden"></div>
 
-<script src="js/telegram.js?v=4"></script>
-<script src="js/api.js?v=4"></script>
-<script src="js/roulette.js?v=4"></script>
-<script src="js/app.js?v=4"></script>
-<script src="js/games.js?v=4"></script>
+<script src="js/telegram.js?v=5"></script>
+<script src="js/api.js?v=5"></script>
+<script src="js/roulette.js?v=5"></script>
+<script src="js/app.js?v=5"></script>
+<script src="js/games.js?v=5"></script>
 </body>
 </html>

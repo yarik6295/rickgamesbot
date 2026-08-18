@@ -147,7 +147,7 @@ function renderCasesGrid() {
         <div class="case-name">${c.name}</div>
         ${priceHtml}
       </div>
-      <div class="case-icon">${caseIcons[i % caseIcons.length]}</div>
+      <div class="case-icon-wrap"><span class="case-icon">${caseIcons[i % caseIcons.length]}</span></div>
       ${lockedOverlay}
     `;
     if (clickable) {
@@ -185,18 +185,35 @@ function updateFreeCaseCountdowns() {
 
 /* ============================= ЭКРАН РУЛЕТКИ ============================= */
 
+// Показывает пул возможных призов кейса под кнопкой "Открыть" — НАМЕРЕННО
+// без указания шансов/весов (только сами значения), чтобы не превращать
+// экран в таблицу вероятностей.
+function renderPrizesList(items) {
+  const grid = $('#case-prizes-grid');
+  grid.innerHTML = '';
+  const sorted = [...items].sort((a, b) => a.value_coins - b.value_coins);
+  sorted.forEach((item) => {
+    const chip = document.createElement('div');
+    chip.className = `case-prize-chip rarity-${item.rarity}`;
+    chip.innerHTML = `<span class="prize-star">⭐</span>${item.value_coins}`;
+    grid.appendChild(chip);
+  });
+}
+
 async function openCaseScreen(caseObj) {
   state.currentCase = caseObj;
   $('#roulette-case-name').textContent = caseObj.name;
   $('#roulette-result').classList.add('hidden');
   $('#btn-open-case').disabled = false;
   $('#btn-open-case').textContent = caseObj.isFree ? 'Открыть бесплатно 🎁' : `Открыть за ${caseObj.price_coins} ⭐`;
+  $('#case-prizes-grid').innerHTML = '';
 
   // Если содержимое кейса уже прогрето в фоне (см. prefetchCaseItems) —
   // показываем превью СРАЗУ, синхронно, без сетевой задержки.
   const cached = state.caseItemsCache[caseObj.slug];
   if (cached) {
     Roulette.preview(cached);
+    renderPrizesList(cached);
   } else {
     // Кэш ещё не прогрелся — вместо Roulette.reset() (пустая тёмная лента,
     // которая выглядела как "чёрный экран, пока грузится") показываем
@@ -216,7 +233,10 @@ async function openCaseScreen(caseObj) {
     state.caseItemsCache[caseObj.slug] = items;
     // Пока запрос летел, пользователь мог уже уйти с этого кейса — не подменяем
     // ленту чужим превью.
-    if (state.currentCase === caseObj) Roulette.preview(items);
+    if (state.currentCase === caseObj) {
+      Roulette.preview(items);
+      renderPrizesList(items);
+    }
   } catch (e) {
     // Превью не критично для открытия кейса — молча оставляем ленту пустой.
   }
