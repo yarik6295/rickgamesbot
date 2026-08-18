@@ -33,13 +33,19 @@
   };
 </script>
 
+<!-- Шрифт вывески: Orbitron для брендового логотипа (неоновый/казино-стиль),
+     подключаем только нужные насыщенности, чтобы не тянуть лишний вес. -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;800;900&display=swap" rel="stylesheet" />
+
 <!-- Версия в query-параметре (?v=) — намеренный cache-bust. Telegram WebView
      (особенно в десктоп-клиенте) очень агрессивно кэширует статику Mini App
      по URL; без смены URL обновлённые css/js после деплоя иногда НЕ подтягиваются,
      и пользователь продолжает видеть старое поведение, хотя на сервере уже
      лежат новые файлы. При каждом деплое с правками фронтенда — увеличивайте
      это число (APP_VERSION ниже и во всех тегах). -->
-<link rel="stylesheet" href="css/style.css?v=3" />
+<link rel="stylesheet" href="css/style.css?v=4" />
 </head>
 <body class="bg-bg text-white min-h-screen font-sans overflow-x-hidden">
 
@@ -48,12 +54,10 @@
 <div class="fixed inset-0 pointer-events-none bg-gradient-radial"></div>
 
 <!-- ============ ШАПКА ============ -->
-<header class="sticky top-0 z-30 backdrop-blur-md bg-bg/70 border-b border-white/5 px-4 py-3 flex items-center justify-between">
-  <div class="flex items-center gap-2">
-    <span class="text-xl">🐸</span>
-    <h1 id="app-title" class="font-extrabold text-lg tracking-tight">Rick Games</h1>
-  </div>
-  <div id="balance-pill" class="flex items-center gap-1.5 bg-surface2 border border-white/10 rounded-full pl-3 pr-1.5 py-1.5 text-sm font-bold">
+<header class="sticky top-0 z-30 backdrop-blur-md bg-bg/70 border-b border-white/5 px-4 py-3 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+  <div></div>
+  <h1 id="app-title" class="brand-logo justify-self-center">RICK GAMES</h1>
+  <div id="balance-pill" class="justify-self-end flex items-center gap-1.5 bg-surface2 border border-white/10 rounded-full pl-3 pr-1.5 py-1.5 text-sm font-bold">
     <span class="text-gold">⭐</span>
     <button id="btn-topup" title="Пополнить баланс" class="bg-transparent border-0 p-0 text-sm font-bold text-white cursor-pointer">
       <span id="balance-value">0</span>
