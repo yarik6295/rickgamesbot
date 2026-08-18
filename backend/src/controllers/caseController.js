@@ -139,6 +139,7 @@ async function openCase(req, res) {
             return {
                 reward: { value_coins: wonTier.value_coins, rarity: wonTier.rarity },
                 newBalance,
+                balanceAfterDebit,
                 casesOpened,
                 accountLevel: newLevel,
                 freeCaseNextAt: isFreeCase ? Date.now() + FREE_CASE_COOLDOWN_MS : undefined,

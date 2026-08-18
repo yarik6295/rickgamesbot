@@ -236,6 +236,19 @@ $('#btn-open-case').addEventListener('click', async () => {
 
     TelegramBridge.haptic('light');
 
+    // БАГ (исправлено): раньше баланс на экране обновлялся только ПОСЛЕ
+    // Roulette.play() — то есть визуально казалось, что звёзды списываются
+    // не сразу, а только через несколько секунд, пока крутится анимация.
+    // На сервере списание и так атомарно и мгновенно (см. openCase() в
+    // caseController.js), но на экране это не было видно — что выглядело
+    // подозрительно и создавало ощущение, будто можно было бы "успеть"
+    // что-то сделать до списания. Теперь показываем списание СРАЗУ, как
+    // только сервер подтвердил открытие кейса (balanceAfterDebit — баланс
+    // сразу после оплаты, ещё до начисления приза), а уже после того, как
+    // анимация дойдёт до приза — обновляем на итоговый баланс с учётом
+    // выигрыша (result.newBalance).
+    updateBalanceUI(result.balanceAfterDebit);
+
     await Roulette.play(result.reelPool, result.reward);
 
     TelegramBridge.haptic(result.reward.rarity === 'legendary' ? 'success' : 'medium');
