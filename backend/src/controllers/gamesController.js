@@ -1,6 +1,7 @@
 const db = require('../db/database');
-const { getOrCreateUser } = require('../services/userService');
+const { getOrCreateUser, touchCachedBalance } = require('../services/userService');
 const crashEngine = require('../services/crashEngine');
+const activeRounds = require('../services/activeRoundsStore');
 const {
     generateMinePositions,
     minesMultiplier,
@@ -35,6 +36,7 @@ async function debit(userId, amount, type, referenceId = null, executor = db) {
     await executor.run(`UPDATE users SET coins_balance = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [newBalance, userId]);
     await executor.run(`INSERT INTO transactions (user_id, type, amount_coins, balance_after, reference_id) VALUES (?, ?, ?, ?, ?)`,
         [userId, type, -amount, newBalance, referenceId]);
+    touchCachedBalance(userId, newBalance);
     return newBalance;
 }
 
@@ -46,6 +48,7 @@ async function credit(userId, amount, type, referenceId = null, executor = db) {
         await executor.run(`INSERT INTO transactions (user_id, type, amount_coins, balance_after, reference_id) VALUES (?, ?, ?, ?, ?)`,
             [userId, type, amount, newBalance, referenceId]);
     }
+    touchCachedBalance(userId, newBalance);
     return newBalance;
 }
 
@@ -76,41 +79,60 @@ async function crashBet(req, res) {
 }
 
 async function crashCashout(req, res) {
+    // Фиксируем момент прихода запроса СРАЗУ, до await getOrCreateUser() —
+    // см. подробный комментарий в crashEngine.cashout(). Это устраняет ту
+    // самую задержку между кликом "Забрать" (и автовыводом) и фактическим
+    // моментом, на котором фиксируется мультипликатор.
+    const requestedAt = Date.now();
     try {
         const user = await getOrCreateUser(req.telegramUser);
-        const result = await crashEngine.cashout(user);
+        const result = await crashEngine.cashout(user, requestedAt);
         res.json({ success: true, ...result });
     } catch (err) {
         res.status(err.status || 500).json({ error: err.message || 'Ошибка вывода', crashPoint: err.crashPoint });
     }
 }
 
-/* ================================ MINES ================================ */
+/* ================================ MINES ================================
+ * Скрытое состояние активного раунда (мины, что уже открыто) держим в
+ * памяти процесса (см. services/activeRoundsStore.js) — тот же подход,
+ * что и общий раунд Crash в crashEngine.js. Это убирает задержку между
+ * тапом по клетке и результатом: раньше на каждый тап уходило 2-3
+ * последовательных сетевых запроса к удалённой Turso-базе (получить
+ * пользователя, получить строку active_rounds, записать revealed) ДО
+ * того, как клиент вообще получал ответ. Теперь ответ формируется сразу
+ * из памяти, а в Turso состояние синхронизируется в фоне
+ * (fire-and-forget) — только для восстановления раунда после перезагрузки
+ * страницы (см. minesStatus).
+ */
 async function minesStart(req, res) {
     try {
-        const result = await db.transaction(async (tx) => {
-            const user = await getOrCreateUser(req.telegramUser, tx);
-            const existing = await tx.get(`SELECT id FROM active_rounds WHERE user_id = ? AND game_type = 'mines'`, [user.id]);
-            if (existing) throw { status: 409, message: 'У вас уже есть активный раунд Mines' };
+        const user = await getOrCreateUser(req.telegramUser);
+        if (activeRounds.get(user.id, 'mines')) {
+            throw { status: 409, message: 'У вас уже есть активный раунд Mines' };
+        }
 
-            const bet = validateBet(req.body.bet, user.coins_balance);
-            const gridSize = 25;
-            const mineCount = Math.min(Math.max(Number(req.body.mineCount) || 3, 1), 24);
+        const bet = validateBet(req.body.bet, user.coins_balance);
+        const gridSize = 25;
+        const mineCount = Math.min(Math.max(Number(req.body.mineCount) || 3, 1), 24);
+        const mines = generateMinePositions(gridSize, mineCount);
+        const serverSeed = crypto.randomBytes(16).toString('hex');
 
-            const mines = generateMinePositions(gridSize, mineCount);
-            const serverSeed = crypto.randomBytes(16).toString('hex');
+        const newBalance = await debit(user.id, bet, 'game_bet');
 
-            const newBalance = await debit(user.id, bet, 'game_bet', null, tx);
-
-            await tx.run(`
-                INSERT INTO active_rounds (user_id, game_type, bet_coins, config, hidden_state, revealed, server_seed)
-                VALUES (?, 'mines', ?, ?, ?, '[]', ?)
-            `, [user.id, bet, JSON.stringify({ gridSize, mineCount }), JSON.stringify({ mines }), serverSeed]);
-
-            return { newBalance, gridSize, mineCount };
+        activeRounds.set(user.id, 'mines', {
+            bet, gridSize, mineCount, mines, revealed: [], serverSeed,
         });
 
-        res.json({ success: true, ...result });
+        // Запись в Turso нужна только для восстановления состояния после
+        // перезагрузки страницы — сам раунд её не ждёт (см. коммент выше).
+        db.run(`
+            INSERT INTO active_rounds (user_id, game_type, bet_coins, config, hidden_state, revealed, server_seed)
+            VALUES (?, 'mines', ?, ?, ?, '[]', ?)
+        `, [user.id, bet, JSON.stringify({ gridSize, mineCount }), JSON.stringify({ mines }), serverSeed])
+            .catch((err) => console.error('[mines] Не удалось сохранить активный раунд в БД:', err));
+
+        res.json({ success: true, newBalance, gridSize, mineCount });
     } catch (err) {
         res.status(err.status || 500).json({ error: err.message || 'Ошибка запуска раунда' });
     }
@@ -119,33 +141,37 @@ async function minesStart(req, res) {
 async function minesReveal(req, res) {
     try {
         const user = await getOrCreateUser(req.telegramUser);
-        const round = await db.get(`SELECT * FROM active_rounds WHERE user_id = ? AND game_type = 'mines'`, [user.id]);
-        if (!round) throw { status: 404, message: 'Нет активного раунда Mines' };
-
-        const config = JSON.parse(round.config);
-        const hidden = JSON.parse(round.hidden_state);
-        const revealed = JSON.parse(round.revealed);
+        const session = activeRounds.get(user.id, 'mines');
+        if (!session) throw { status: 404, message: 'Нет активного раунда Mines' };
 
         const tile = Number(req.body.tile);
-        if (!Number.isInteger(tile) || tile < 0 || tile >= config.gridSize) {
+        if (!Number.isInteger(tile) || tile < 0 || tile >= session.gridSize) {
             throw { status: 400, message: 'Некорректная клетка' };
         }
-        if (revealed.includes(tile)) throw { status: 400, message: 'Клетка уже открыта' };
+        if (session.revealed.includes(tile)) throw { status: 400, message: 'Клетка уже открыта' };
 
-        if (hidden.mines.includes(tile)) {
-            await db.run(`DELETE FROM active_rounds WHERE id = ?`, [round.id]);
-            await logRound(user.id, 'mines', round.bet_coins, 0, 0, 'lose', { ...config, mines: hidden.mines, revealed }, round.server_seed);
-            const freshUser = await getOrCreateUser(req.telegramUser);
-            return res.json({ success: true, hit: true, mines: hidden.mines, newBalance: freshUser.coins_balance });
+        if (session.mines.includes(tile)) {
+            activeRounds.remove(user.id, 'mines');
+            const revealedAtLoss = session.revealed;
+            db.run(`DELETE FROM active_rounds WHERE user_id = ? AND game_type = 'mines'`, [user.id])
+                .catch((err) => console.error('[mines] Не удалось удалить активный раунд:', err));
+            logRound(user.id, 'mines', session.bet, 0, 0, 'lose',
+                { gridSize: session.gridSize, mineCount: session.mineCount, mines: session.mines, revealed: revealedAtLoss },
+                session.serverSeed).catch((err) => console.error('[mines] Не удалось записать проигрышный раунд:', err));
+            // Баланс на проигрыше не меняется (ставка уже списана на старте) —
+            // отдаём его из уже имеющегося в памяти user без похода в БД.
+            return res.json({ success: true, hit: true, mines: session.mines, newBalance: user.coins_balance });
         }
 
-        revealed.push(tile);
-        await db.run(`UPDATE active_rounds SET revealed = ? WHERE id = ?`, [JSON.stringify(revealed), round.id]);
+        session.revealed.push(tile);
+        const multiplier = minesMultiplier(session.gridSize, session.mineCount, session.revealed.length);
+        const potentialPayout = Math.floor(session.bet * multiplier);
 
-        const multiplier = minesMultiplier(config.gridSize, config.mineCount, revealed.length);
-        const potentialPayout = Math.floor(round.bet_coins * multiplier);
+        db.run(`UPDATE active_rounds SET revealed = ? WHERE user_id = ? AND game_type = 'mines'`,
+            [JSON.stringify(session.revealed), user.id])
+            .catch((err) => console.error('[mines] Не удалось синхронизировать активный раунд:', err));
 
-        res.json({ success: true, hit: false, revealed, multiplier, potentialPayout });
+        res.json({ success: true, hit: false, revealed: session.revealed, multiplier, potentialPayout });
     } catch (err) {
         res.status(err.status || 500).json({ error: err.message || 'Ошибка открытия клетки' });
     }
@@ -153,11 +179,30 @@ async function minesReveal(req, res) {
 
 async function minesStatus(req, res) {
     const user = await getOrCreateUser(req.telegramUser);
+    const session = activeRounds.get(user.id, 'mines');
+    if (session) {
+        const multiplier = session.revealed.length > 0 ? minesMultiplier(session.gridSize, session.mineCount, session.revealed.length) : 1;
+        const potentialPayout = session.revealed.length > 0 ? Math.floor(session.bet * multiplier) : 0;
+        return res.json({
+            active: true, gridSize: session.gridSize, mineCount: session.mineCount,
+            bet: session.bet, revealed: session.revealed, multiplier, potentialPayout,
+        });
+    }
+
+    // В памяти раунда нет (например, сервер перезапустился) — подстраховка
+    // из Turso, заодно "прогреваем" память, чтобы дальнейшие клики снова
+    // отвечали мгновенно, без похода в БД на каждый тап.
     const round = await db.get(`SELECT * FROM active_rounds WHERE user_id = ? AND game_type = 'mines'`, [user.id]);
     if (!round) return res.json({ active: false });
 
     const config = JSON.parse(round.config);
+    const hidden = JSON.parse(round.hidden_state);
     const revealed = JSON.parse(round.revealed);
+    activeRounds.set(user.id, 'mines', {
+        bet: round.bet_coins, gridSize: config.gridSize, mineCount: config.mineCount,
+        mines: hidden.mines, revealed, serverSeed: round.server_seed,
+    });
+
     const multiplier = revealed.length > 0 ? minesMultiplier(config.gridSize, config.mineCount, revealed.length) : 1;
     const potentialPayout = revealed.length > 0 ? Math.floor(round.bet_coins * multiplier) : 0;
 
@@ -175,22 +220,25 @@ async function minesStatus(req, res) {
 async function minesCashout(req, res) {
     try {
         const user = await getOrCreateUser(req.telegramUser);
-        const round = await db.get(`SELECT * FROM active_rounds WHERE user_id = ? AND game_type = 'mines'`, [user.id]);
-        if (!round) throw { status: 404, message: 'Нет активного раунда Mines' };
+        const session = activeRounds.get(user.id, 'mines');
+        if (!session) throw { status: 404, message: 'Нет активного раунда Mines' };
+        if (session.revealed.length === 0) throw { status: 400, message: 'Откройте хотя бы одну клетку перед выводом' };
 
-        const config = JSON.parse(round.config);
-        const hidden = JSON.parse(round.hidden_state);
-        const revealed = JSON.parse(round.revealed);
-        if (revealed.length === 0) throw { status: 400, message: 'Откройте хотя бы одну клетку перед выводом' };
+        const multiplier = minesMultiplier(session.gridSize, session.mineCount, session.revealed.length);
+        const payout = Math.floor(session.bet * multiplier);
 
-        const multiplier = minesMultiplier(config.gridSize, config.mineCount, revealed.length);
-        const payout = Math.floor(round.bet_coins * multiplier);
-
-        await db.run(`DELETE FROM active_rounds WHERE id = ?`, [round.id]);
+        activeRounds.remove(user.id, 'mines');
+        // Начисление выигрыша — реальные деньги (виртуальные звёзды) на
+        // балансе, это финальное действие раунда, ждём его по-настоящему.
         const newBalance = await credit(user.id, payout, 'game_win');
-        await logRound(user.id, 'mines', round.bet_coins, payout, multiplier, 'cashout', { ...config, mines: hidden.mines, revealed }, round.server_seed);
 
-        res.json({ success: true, payout, multiplier, newBalance, mines: hidden.mines });
+        db.run(`DELETE FROM active_rounds WHERE user_id = ? AND game_type = 'mines'`, [user.id])
+            .catch((err) => console.error('[mines] Не удалось удалить активный раунд:', err));
+        logRound(user.id, 'mines', session.bet, payout, multiplier, 'cashout',
+            { gridSize: session.gridSize, mineCount: session.mineCount, mines: session.mines, revealed: session.revealed },
+            session.serverSeed).catch((err) => console.error('[mines] Не удалось записать раунд:', err));
+
+        res.json({ success: true, payout, multiplier, newBalance, mines: session.mines });
     } catch (err) {
         res.status(err.status || 500).json({ error: err.message || 'Ошибка вывода' });
     }
@@ -226,29 +274,35 @@ const TOWERS_ROWS = 8;
 const TOWERS_TILES_PER_ROW = 3;
 const TOWERS_BOMBS_PER_ROW = 1;
 
+// Как и в Mines (см. коммент там), скрытое состояние активного раунда
+// (расклад бомб, пройденные этажи) держим в памяти процесса — на каждый
+// тап по плитке больше не тратим время на поход в удалённую Turso-базу.
 async function towersStart(req, res) {
     try {
-        const result = await db.transaction(async (tx) => {
-            const user = await getOrCreateUser(req.telegramUser, tx);
-            const existing = await tx.get(`SELECT id FROM active_rounds WHERE user_id = ? AND game_type = 'towers'`, [user.id]);
-            if (existing) throw { status: 409, message: 'У вас уже есть активный раунд Towers' };
+        const user = await getOrCreateUser(req.telegramUser);
+        if (activeRounds.get(user.id, 'towers')) {
+            throw { status: 409, message: 'У вас уже есть активный раунд Towers' };
+        }
 
-            const bet = validateBet(req.body.bet, user.coins_balance);
-            const layout = generateTowerLayout(TOWERS_ROWS, TOWERS_TILES_PER_ROW, TOWERS_BOMBS_PER_ROW);
-            const serverSeed = crypto.randomBytes(16).toString('hex');
+        const bet = validateBet(req.body.bet, user.coins_balance);
+        const layout = generateTowerLayout(TOWERS_ROWS, TOWERS_TILES_PER_ROW, TOWERS_BOMBS_PER_ROW);
+        const serverSeed = crypto.randomBytes(16).toString('hex');
 
-            const newBalance = await debit(user.id, bet, 'game_bet', null, tx);
+        const newBalance = await debit(user.id, bet, 'game_bet');
 
-            await tx.run(`
-                INSERT INTO active_rounds (user_id, game_type, bet_coins, config, hidden_state, revealed, server_seed)
-                VALUES (?, 'towers', ?, ?, ?, '[]', ?)
-            `, [user.id, bet, JSON.stringify({ rows: TOWERS_ROWS, tilesPerRow: TOWERS_TILES_PER_ROW, bombsPerRow: TOWERS_BOMBS_PER_ROW }),
-                JSON.stringify({ layout }), serverSeed]);
-
-            return { newBalance, rows: TOWERS_ROWS, tilesPerRow: TOWERS_TILES_PER_ROW };
+        activeRounds.set(user.id, 'towers', {
+            bet, rows: TOWERS_ROWS, tilesPerRow: TOWERS_TILES_PER_ROW, bombsPerRow: TOWERS_BOMBS_PER_ROW,
+            layout, revealed: [], serverSeed,
         });
 
-        res.json({ success: true, ...result });
+        db.run(`
+            INSERT INTO active_rounds (user_id, game_type, bet_coins, config, hidden_state, revealed, server_seed)
+            VALUES (?, 'towers', ?, ?, ?, '[]', ?)
+        `, [user.id, bet, JSON.stringify({ rows: TOWERS_ROWS, tilesPerRow: TOWERS_TILES_PER_ROW, bombsPerRow: TOWERS_BOMBS_PER_ROW }),
+            JSON.stringify({ layout }), serverSeed])
+            .catch((err) => console.error('[towers] Не удалось сохранить активный раунд в БД:', err));
+
+        res.json({ success: true, newBalance, rows: TOWERS_ROWS, tilesPerRow: TOWERS_TILES_PER_ROW });
     } catch (err) {
         res.status(err.status || 500).json({ error: err.message || 'Ошибка запуска раунда' });
     }
@@ -257,47 +311,52 @@ async function towersStart(req, res) {
 async function towersPick(req, res) {
     try {
         const user = await getOrCreateUser(req.telegramUser);
-        const round = await db.get(`SELECT * FROM active_rounds WHERE user_id = ? AND game_type = 'towers'`, [user.id]);
-        if (!round) throw { status: 404, message: 'Нет активного раунда Towers' };
+        const session = activeRounds.get(user.id, 'towers');
+        if (!session) throw { status: 404, message: 'Нет активного раунда Towers' };
 
-        const config = JSON.parse(round.config);
-        const hidden = JSON.parse(round.hidden_state);
-        const revealed = JSON.parse(round.revealed);
-
-        const currentRow = revealed.length;
-        if (currentRow >= config.rows) throw { status: 400, message: 'Башня уже пройдена целиком' };
+        const currentRow = session.revealed.length;
+        if (currentRow >= session.rows) throw { status: 400, message: 'Башня уже пройдена целиком' };
 
         const tile = Number(req.body.tile);
-        if (!Number.isInteger(tile) || tile < 0 || tile >= config.tilesPerRow) {
+        if (!Number.isInteger(tile) || tile < 0 || tile >= session.tilesPerRow) {
             throw { status: 400, message: 'Некорректная клетка' };
         }
 
-        const rowMultiplier = towersMultiplierPerRow(config.tilesPerRow, config.bombsPerRow);
+        const rowMultiplier = towersMultiplierPerRow(session.tilesPerRow, session.bombsPerRow);
 
-        if (hidden.layout[currentRow].includes(tile)) {
-            await db.run(`DELETE FROM active_rounds WHERE id = ?`, [round.id]);
-            await logRound(user.id, 'towers', round.bet_coins, 0, 0, 'lose', { ...config, layout: hidden.layout, revealed }, round.server_seed);
-            const freshUser = await getOrCreateUser(req.telegramUser);
-            return res.json({ success: true, hit: true, layout: hidden.layout, newBalance: freshUser.coins_balance });
+        if (session.layout[currentRow].includes(tile)) {
+            activeRounds.remove(user.id, 'towers');
+            const revealedAtLoss = session.revealed;
+            db.run(`DELETE FROM active_rounds WHERE user_id = ? AND game_type = 'towers'`, [user.id])
+                .catch((err) => console.error('[towers] Не удалось удалить активный раунд:', err));
+            logRound(user.id, 'towers', session.bet, 0, 0, 'lose',
+                { rows: session.rows, tilesPerRow: session.tilesPerRow, bombsPerRow: session.bombsPerRow, layout: session.layout, revealed: revealedAtLoss },
+                session.serverSeed).catch((err) => console.error('[towers] Не удалось записать проигрышный раунд:', err));
+            return res.json({ success: true, hit: true, layout: session.layout, newBalance: user.coins_balance });
         }
 
-        revealed.push(tile);
-        await db.run(`UPDATE active_rounds SET revealed = ? WHERE id = ?`, [JSON.stringify(revealed), round.id]);
-
-        const bombPositions = hidden.layout.slice(0, revealed.length).map((row) => row[0]);
-
-        const multiplier = Math.round(Math.pow(rowMultiplier, revealed.length) * 100) / 100;
-        const potentialPayout = Math.floor(round.bet_coins * multiplier);
-        const completed = revealed.length >= config.rows;
+        session.revealed.push(tile);
+        const bombPositions = session.layout.slice(0, session.revealed.length).map((row) => row[0]);
+        const multiplier = Math.round(Math.pow(rowMultiplier, session.revealed.length) * 100) / 100;
+        const potentialPayout = Math.floor(session.bet * multiplier);
+        const completed = session.revealed.length >= session.rows;
 
         if (completed) {
-            await db.run(`DELETE FROM active_rounds WHERE id = ?`, [round.id]);
+            activeRounds.remove(user.id, 'towers');
             const newBalance = await credit(user.id, potentialPayout, 'game_win');
-            await logRound(user.id, 'towers', round.bet_coins, potentialPayout, multiplier, 'win', { ...config, revealed }, round.server_seed);
-            return res.json({ success: true, hit: false, completed: true, revealed, bombPositions, multiplier, payout: potentialPayout, newBalance });
+            db.run(`DELETE FROM active_rounds WHERE user_id = ? AND game_type = 'towers'`, [user.id])
+                .catch((err) => console.error('[towers] Не удалось удалить активный раунд:', err));
+            logRound(user.id, 'towers', session.bet, potentialPayout, multiplier, 'win',
+                { rows: session.rows, tilesPerRow: session.tilesPerRow, bombsPerRow: session.bombsPerRow, revealed: session.revealed },
+                session.serverSeed).catch((err) => console.error('[towers] Не удалось записать раунд:', err));
+            return res.json({ success: true, hit: false, completed: true, revealed: session.revealed, bombPositions, multiplier, payout: potentialPayout, newBalance });
         }
 
-        res.json({ success: true, hit: false, completed: false, revealed, bombPositions, multiplier, potentialPayout });
+        db.run(`UPDATE active_rounds SET revealed = ? WHERE user_id = ? AND game_type = 'towers'`,
+            [JSON.stringify(session.revealed), user.id])
+            .catch((err) => console.error('[towers] Не удалось синхронизировать активный раунд:', err));
+
+        res.json({ success: true, hit: false, completed: false, revealed: session.revealed, bombPositions, multiplier, potentialPayout });
     } catch (err) {
         res.status(err.status || 500).json({ error: err.message || 'Ошибка хода' });
     }
@@ -305,12 +364,31 @@ async function towersPick(req, res) {
 
 async function towersStatus(req, res) {
     const user = await getOrCreateUser(req.telegramUser);
+    const session = activeRounds.get(user.id, 'towers');
+    if (session) {
+        const bombPositions = session.layout.slice(0, session.revealed.length).map((row) => row[0]);
+        const rowMultiplier = towersMultiplierPerRow(session.tilesPerRow, session.bombsPerRow);
+        const multiplier = session.revealed.length > 0 ? Math.round(Math.pow(rowMultiplier, session.revealed.length) * 100) / 100 : 1;
+        const potentialPayout = session.revealed.length > 0 ? Math.floor(session.bet * multiplier) : 0;
+        return res.json({
+            active: true, rows: session.rows, tilesPerRow: session.tilesPerRow, bet: session.bet,
+            currentRow: session.revealed.length, revealed: session.revealed, bombPositions, multiplier, potentialPayout,
+        });
+    }
+
+    // Подстраховка из Turso (например, после рестарта сервера) — заодно
+    // прогреваем память, чтобы дальнейшие тапы снова были мгновенными.
     const round = await db.get(`SELECT * FROM active_rounds WHERE user_id = ? AND game_type = 'towers'`, [user.id]);
     if (!round) return res.json({ active: false });
 
     const config = JSON.parse(round.config);
     const hidden = JSON.parse(round.hidden_state);
     const revealed = JSON.parse(round.revealed);
+    activeRounds.set(user.id, 'towers', {
+        bet: round.bet_coins, rows: config.rows, tilesPerRow: config.tilesPerRow, bombsPerRow: config.bombsPerRow,
+        layout: hidden.layout, revealed, serverSeed: round.server_seed,
+    });
+
     const bombPositions = hidden.layout.slice(0, revealed.length).map((row) => row[0]);
     const rowMultiplier = towersMultiplierPerRow(config.tilesPerRow, config.bombsPerRow);
     const multiplier = revealed.length > 0 ? Math.round(Math.pow(rowMultiplier, revealed.length) * 100) / 100 : 1;
@@ -332,20 +410,22 @@ async function towersStatus(req, res) {
 async function towersCashout(req, res) {
     try {
         const user = await getOrCreateUser(req.telegramUser);
-        const round = await db.get(`SELECT * FROM active_rounds WHERE user_id = ? AND game_type = 'towers'`, [user.id]);
-        if (!round) throw { status: 404, message: 'Нет активного раунда Towers' };
+        const session = activeRounds.get(user.id, 'towers');
+        if (!session) throw { status: 404, message: 'Нет активного раунда Towers' };
+        if (session.revealed.length === 0) throw { status: 400, message: 'Пройдите хотя бы один этаж перед выводом' };
 
-        const config = JSON.parse(round.config);
-        const revealed = JSON.parse(round.revealed);
-        if (revealed.length === 0) throw { status: 400, message: 'Пройдите хотя бы один этаж перед выводом' };
+        const rowMultiplier = towersMultiplierPerRow(session.tilesPerRow, session.bombsPerRow);
+        const multiplier = Math.round(Math.pow(rowMultiplier, session.revealed.length) * 100) / 100;
+        const payout = Math.floor(session.bet * multiplier);
 
-        const rowMultiplier = towersMultiplierPerRow(config.tilesPerRow, config.bombsPerRow);
-        const multiplier = Math.round(Math.pow(rowMultiplier, revealed.length) * 100) / 100;
-        const payout = Math.floor(round.bet_coins * multiplier);
-
-        await db.run(`DELETE FROM active_rounds WHERE id = ?`, [round.id]);
+        activeRounds.remove(user.id, 'towers');
         const newBalance = await credit(user.id, payout, 'game_win');
-        await logRound(user.id, 'towers', round.bet_coins, payout, multiplier, 'cashout', { ...config, revealed }, round.server_seed);
+
+        db.run(`DELETE FROM active_rounds WHERE user_id = ? AND game_type = 'towers'`, [user.id])
+            .catch((err) => console.error('[towers] Не удалось удалить активный раунд:', err));
+        logRound(user.id, 'towers', session.bet, payout, multiplier, 'cashout',
+            { rows: session.rows, tilesPerRow: session.tilesPerRow, bombsPerRow: session.bombsPerRow, revealed: session.revealed },
+            session.serverSeed).catch((err) => console.error('[towers] Не удалось записать раунд:', err));
 
         res.json({ success: true, payout, multiplier, newBalance });
     } catch (err) {

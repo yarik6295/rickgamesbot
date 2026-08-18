@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db/database');
 const telegramAuth = require('../middleware/telegramAuth');
-const { getOrCreateUser } = require('../services/userService');
+const { getOrCreateUser, invalidateUserCache } = require('../services/userService');
 require('dotenv').config();
 
 router.use(telegramAuth);
@@ -44,6 +44,7 @@ router.post('/topup', async (req, res) => {
             VALUES (?, 'self_topup', ?, ?)
         `, [user.id, amount, newBalance]);
 
+        invalidateUserCache(user.id);
         return newBalance;
     });
 

@@ -1,5 +1,6 @@
 const db = require('../db/database');
 const { generateCrashPoint } = require('./gamesService');
+const { touchCachedBalance } = require('./userService');
 
 /**
  * Crash — общий "живой" раунд для всех игроков одновременно (см. подробное
@@ -41,6 +42,7 @@ async function ledgerDebit(userId, amount, type, referenceId) {
     await db.run(`UPDATE users SET coins_balance = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [newBalance, userId]);
     await db.run(`INSERT INTO transactions (user_id, type, amount_coins, balance_after, reference_id) VALUES (?, ?, ?, ?, ?)`,
         [userId, type, -amount, newBalance, referenceId || null]);
+    touchCachedBalance(userId, newBalance);
     return newBalance;
 }
 
@@ -52,6 +54,7 @@ async function ledgerCredit(userId, amount, type, referenceId) {
         await db.run(`INSERT INTO transactions (user_id, type, amount_coins, balance_after, reference_id) VALUES (?, ?, ?, ?, ?)`,
             [userId, type, amount, newBalance, referenceId || null]);
     }
+    touchCachedBalance(userId, newBalance);
     return newBalance;
 }
 
@@ -154,14 +157,24 @@ async function placeBet(user, betRaw) {
     return { newBalance, roundId: state.roundId };
 }
 
-async function cashout(user) {
+async function cashout(user, requestedAt) {
+    // requestedAt — момент, когда HTTP-запрос реально пришёл на сервер
+    // (фиксируется в контроллере ДО похода за пользователем в БД, см.
+    // gamesController.crashCashout). Раньше мультипликатор здесь считался
+    // по Date.now(), взятому уже ПОСЛЕ await getOrCreateUser() — то есть
+    // после отдельного сетевого round-trip до Turso. Пока этот запрос
+    // летал, мультипликатор в быстро растущей кривой успевал заметно
+    // "убежать" вперёд — отсюда и жалоба "нажал на 2.00, а забрало 2.05".
+    // Теперь момент клика фиксируется как можно раньше и передаётся сюда
+    // готовым, поэтому расчёт больше не ждёт никаких походов в БД.
+    const now = requestedAt || Date.now();
     const p = state.players.get(user.id);
     if (!p) throw { status: 404, message: 'Вы не участвуете в текущем раунде' };
     if (p.cashedOut) throw { status: 409, message: 'Вы уже забрали выигрыш в этом раунде' };
     if (state.phase !== 'flying') {
         throw { status: 409, message: 'Раунд ещё не начался или уже завершён' };
     }
-    const mult = computeMultiplier(Date.now());
+    const mult = computeMultiplier(now);
     if (mult >= state.crashPoint) {
         throw { status: 409, message: 'Не успели — раунд лопнул', crashPoint: state.crashPoint };
     }

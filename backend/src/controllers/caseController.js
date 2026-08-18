@@ -1,6 +1,6 @@
 const db = require('../db/database');
 const { rollWeightedItem } = require('../services/rngService');
-const { getOrCreateUser, computeLevel } = require('../services/userService');
+const { getOrCreateUser, computeLevel, invalidateUserCache } = require('../services/userService');
 
 const FREE_CASE_SLUG = 'free_case';
 const FREE_CASE_COOLDOWN_MS = 24 * 60 * 60 * 1000;
@@ -56,11 +56,13 @@ async function getCaseDetails(req, res) {
  */
 async function openCase(req, res) {
     const { slug } = req.params;
+    let userId = null;
 
     try {
         const result = await db.transaction(async (tx) => {
             const telegramUser = req.telegramUser;
             const user = await getOrCreateUser(telegramUser, tx);
+            userId = user.id;
 
             const caseRow = await tx.get(`SELECT * FROM cases WHERE slug = ? AND is_active = 1`, [slug]);
             if (!caseRow) throw { status: 404, message: 'Кейс не найден или отключён' };
@@ -128,6 +130,11 @@ async function openCase(req, res) {
             };
         });
 
+        // Баланс/уровень/cases_opened менялись напрямую внутри транзакции,
+        // в обход userService — сбрасываем короткоживущий кэш пользователя,
+        // чтобы следующий запрос (в т.ч. игровой) не увидел устаревший
+        // баланс (см. комментарий про TTL-кэш в userService.js).
+        if (userId != null) invalidateUserCache(userId);
         res.json({ success: true, ...result });
     } catch (err) {
         const status = err.status || 500;
