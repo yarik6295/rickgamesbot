@@ -1,8 +1,9 @@
 -- =========================================================
 -- Gifts Case Simulator — схема базы данных (SQLite)
--- ВАЖНО: coins_balance — игровая виртуальная валюта приложения.
--- Кнопка пополнения финансируется подтверждёнными Telegram Stars (XTR),
--- но coins_balance не является балансом Telegram Stars и не выводится автоматически.
+-- ВАЖНО: coins_balance — ПОЛНОСТЬЮ ВИРТУАЛЬНАЯ валюта.
+-- Её нельзя купить за реальные деньги и нельзя вывести.
+-- Пополняется только через игровые механики (ежедневный бонус,
+-- достижения, рефералы) — см. userRoutes.
 -- =========================================================
 
 -- Пользователи (привязаны к Telegram ID)
@@ -52,7 +53,7 @@ CREATE TABLE IF NOT EXISTS transactions (
     user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     type            TEXT NOT NULL CHECK(type IN (
                         'daily_bonus','case_open','sell_item','admin_adjust',
-                        'game_bet','game_win','self_topup'
+                        'game_bet','game_win','self_topup','stars_topup'
                     )),
     amount_coins    INTEGER NOT NULL,                 -- +начисление / -списание
     balance_after   INTEGER NOT NULL,
@@ -106,19 +107,20 @@ CREATE INDEX IF NOT EXISTS idx_case_items_case ON case_items(case_id);
 CREATE INDEX IF NOT EXISTS idx_game_rounds_user ON game_rounds(user_id);
 
 
--- Платежи Telegram Stars для пополнения игрового баланса.
--- Реальное пополнение происходит только после successful_payment от Telegram.
+-- Реальные платежи Telegram Stars. Игровой баланс начисляется только после
+-- получения от Telegram successful_payment и проверки payload/суммы/пользователя.
 CREATE TABLE IF NOT EXISTS star_payments (
-    id                         INTEGER PRIMARY KEY AUTOINCREMENT,
-    payment_id                 TEXT UNIQUE NOT NULL,
+    id                          INTEGER PRIMARY KEY AUTOINCREMENT,
+    payment_id                  TEXT UNIQUE NOT NULL,
     user_id                    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     telegram_id                INTEGER NOT NULL,
     stars_amount               INTEGER NOT NULL,
     payload                    TEXT UNIQUE NOT NULL,
-    status                     TEXT NOT NULL CHECK(status IN ('pending','paid','cancelled')),
+    status                     TEXT NOT NULL CHECK(status IN ('pending','paid','cancelled')) DEFAULT 'pending',
     telegram_payment_charge_id TEXT UNIQUE,
-    created_at                 DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at                  DATETIME DEFAULT CURRENT_TIMESTAMP,
     paid_at                    DATETIME
 );
 
 CREATE INDEX IF NOT EXISTS idx_star_payments_user ON star_payments(user_id);
+CREATE INDEX IF NOT EXISTS idx_star_payments_payload ON star_payments(payload);

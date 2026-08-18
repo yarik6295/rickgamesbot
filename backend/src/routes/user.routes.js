@@ -15,42 +15,6 @@ router.get('/me', async (req, res) => {
     res.json({ user });
 });
 
-const MAX_TOPUP_AMOUNT = Number(process.env.MAX_TOPUP_AMOUNT || 1000000);
-
-/**
- * POST /api/user/topup
- */
-router.post('/topup', async (req, res) => {
-    const amount = Math.floor(Number(req.body?.amount));
-
-    if (!Number.isFinite(amount) || amount <= 0) {
-        return res.status(400).json({ error: 'Сумма должна быть положительным числом' });
-    }
-    if (amount > MAX_TOPUP_AMOUNT) {
-        return res.status(400).json({ error: `Максимум за одно пополнение: ${MAX_TOPUP_AMOUNT} звёзд` });
-    }
-
-    const newBalance = await db.transaction(async (tx) => {
-        const user = await getOrCreateUser(req.telegramUser, tx);
-        const newBalance = user.coins_balance + amount;
-
-        await tx.run(`
-            UPDATE users SET coins_balance = ?, updated_at = CURRENT_TIMESTAMP
-            WHERE id = ?
-        `, [newBalance, user.id]);
-
-        await tx.run(`
-            INSERT INTO transactions (user_id, type, amount_coins, balance_after)
-            VALUES (?, 'self_topup', ?, ?)
-        `, [user.id, amount, newBalance]);
-
-        invalidateUserCache(user.id);
-        return newBalance;
-    });
-
-    res.json({ success: true, newBalance, amount });
-});
-
 /**
  * GET /api/user/transactions
  */

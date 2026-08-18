@@ -39,7 +39,8 @@ async function start() {
     app.use('/api/user', userRoutes);
     app.use('/api/games', gamesRoutes);
     app.use('/api/leaderboard', leaderboardRoutes);
-    app.use('/api', paymentsRoutes);
+    // Telegram Stars: invoice/status требуют Telegram initData, webhook — нет.
+    app.use('/api/user', paymentsRoutes);
 
     app.get('/api/health', (req, res) => res.json({ status: 'ok', ts: Date.now() }));
 

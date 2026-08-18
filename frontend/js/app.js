@@ -1,8 +1,8 @@
 /**
  * Главный контроллер Mini App: навигация по табам, рендер кейсов,
  * инвентаря, профиля, и оркестрация открытия кейса.
- * Вся валюта в приложении — виртуальные звёзды (coins_balance),
- * не покупаются и не выводятся.
+ * coins_balance — внутренний игровой баланс. Пополнение этого баланса
+ * происходит только после подтверждённой оплаты Telegram Stars.
  */
 const state = {
   cases: [],
@@ -422,6 +422,7 @@ const TX_LABELS = {
   game_bet: '🎮 Ставка в игре',
   game_win: '🏆 Выигрыш в игре',
   self_topup: '⭐ Пополнение баланса',
+  stars_topup: '⭐ Пополнение через Telegram Stars',
 };
 
 function renderTransactions(transactions) {
@@ -463,24 +464,52 @@ $('#btn-topup-cancel').addEventListener('click', () => {
 async function submitTopup() {
   const input = $('#topup-amount-input');
   const amount = Math.floor(Number(input.value));
-  if (!Number.isFinite(amount) || amount <= 0) {
+  if (!Number.isInteger(amount) || amount <= 0) {
     showToast('Введите сумму больше нуля', 'error');
     return;
   }
 
   const confirmBtn = $('#btn-topup-confirm');
   confirmBtn.disabled = true;
+  confirmBtn.textContent = 'Создаём оплату...';
+
   try {
-    const res = await Api.topUp(amount);
-    updateBalanceUI(res.newBalance);
-    showToast(`Баланс пополнен на ${res.amount} ⭐`);
-    TelegramBridge.haptic('success');
-    $('#topup-modal').classList.add('hidden');
+    // Баланс здесь НЕ меняется. Сервер только создаёт invoice в Telegram.
+    const invoice = await Api.createTopupInvoice(amount);
+
+    TelegramBridge.openInvoice(invoice.invoiceLink, async (status) => {
+      if (status === 'paid') {
+        // Telegram присылает successful_payment на webhook отдельно, поэтому
+        // ждём подтверждение сервера и только после него обновляем баланс.
+        for (let i = 0; i < 20; i += 1) {
+          try {
+            const payment = await Api.getTopupStatus(invoice.paymentId);
+            if (payment.status === 'paid') {
+              updateBalanceUI(payment.newBalance);
+              showToast(`Баланс пополнен на ${payment.amount} ⭐`);
+              TelegramBridge.haptic('success');
+              $('#topup-modal').classList.add('hidden');
+              return;
+            }
+          } catch (_) {}
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+        showToast('Оплата прошла, но подтверждение ещё обрабатывается. Баланс обновится автоматически.', 'info');
+        loadProfile();
+      } else if (status === 'cancelled') {
+        showToast('Оплата отменена');
+      } else if (status === 'failed') {
+        showToast('Telegram не смог провести оплату', 'error');
+      } else if (status === 'not_supported') {
+        showToast('Открытие Telegram Stars доступно только внутри Telegram', 'error');
+      }
+    });
   } catch (e) {
     showToast(e.message, 'error');
     TelegramBridge.haptic('error');
   } finally {
     confirmBtn.disabled = false;
+    confirmBtn.textContent = 'Оплатить ⭐';
   }
 }
 

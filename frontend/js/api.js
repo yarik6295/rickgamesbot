@@ -36,7 +36,8 @@ const Api = {
 
   getProfile: () => apiRequest('/user/me'),
   getTransactions: () => apiRequest('/user/transactions'),
-  topUp: (amount) => apiRequest('/user/topup', { method: 'POST', body: { amount } }),
+  createTopupInvoice: (amount) => apiRequest('/user/topup/invoice', { method: 'POST', body: { amount } }),
+  getTopupStatus: (paymentId) => apiRequest(`/user/topup/status/${encodeURIComponent(paymentId)}`),
 
   // ---- Crash (общий раунд для всех игроков) ----
   crashState: () => apiRequest('/games/crash/state'),
