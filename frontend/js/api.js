@@ -41,7 +41,7 @@ const Api = {
   // ---- Crash (общий раунд для всех игроков) ----
   crashState: () => apiRequest('/games/crash/state'),
   crashBet: (bet) => apiRequest('/games/crash/bet', { method: 'POST', body: { bet } }),
-  crashCashout: () => apiRequest('/games/crash/cashout', { method: 'POST' }),
+  crashCashout: (multiplier) => apiRequest('/games/crash/cashout', { method: 'POST', body: { multiplier } }),
 
   // ---- Mines ----
   minesStart: (bet, mineCount) => apiRequest('/games/mines/start', { method: 'POST', body: { bet, mineCount } }),

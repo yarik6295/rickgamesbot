@@ -86,7 +86,7 @@ async function crashCashout(req, res) {
     const requestedAt = Date.now();
     try {
         const user = await getOrCreateUser(req.telegramUser);
-        const result = await crashEngine.cashout(user, requestedAt);
+        const result = await crashEngine.cashout(user, requestedAt, req.body?.multiplier);
         res.json({ success: true, ...result });
     } catch (err) {
         res.status(err.status || 500).json({ error: err.message || 'Ошибка вывода', crashPoint: err.crashPoint });

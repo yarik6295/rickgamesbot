@@ -93,6 +93,13 @@
     curvePoints: [],
     autoTriggered: false,
     busy: false,
+    // Локально посчитанный мультипликатор на последний кадр — именно то
+    // число, которое игрок реально видел на экране в момент клика
+    // "Забрать"/срабатывания автовывода. Отправляем его на сервер вместе
+    // с запросом кэшаута (см. cashout() ниже) — иначе даже при мгновенном
+    // ответе сервера кривая успевает подрасти за время сетевой передачи
+    // запроса, и итоговая выплата оказывается выше того, что видел игрок.
+    currentMult: 1,
     // Счётчик локальных мутаций ставки (bet/cashout). Опрос состояния (poll)
     // идёт по таймеру раз в 400мс независимо от кликов — если poll-запрос
     // улетел на сервер ДО того, как пользователь нажал "Забрать", а ответ
@@ -252,6 +259,7 @@
       } else if (this.phase === 'flying') {
         const t = Math.max(0, (now - this.flyingStartedAt) / 1000);
         const mult = Math.max(1, Math.round(Math.exp(this.growthK * t) * 100) / 100);
+        this.currentMult = mult;
         $('#crash-multiplier').textContent = mult.toFixed(2) + 'x';
         $('#crash-status-label').textContent = 'В полёте 🚀';
         this.curvePoints.push({ t, mult });
@@ -365,11 +373,15 @@
         if (!isAuto) toast('Ставка уже забрана или её нет', 'error');
         return;
       }
+      // Фиксируем локально посчитанный мультипликатор ПРЯМО СЕЙЧАС, до
+      // отправки запроса — это и есть то число, которое игрок увидел на
+      // экране в момент клика (см. комментарий у this.currentMult).
+      const seenMultiplier = this.currentMult;
       this.busy = true;
       this.mutationSeq++;
       this.renderButtons();
       try {
-        const res = await Api.crashCashout();
+        const res = await Api.crashCashout(seenMultiplier);
         window.updateBalanceUI(res.newBalance);
         this.myBet.cashedOut = true;
         this.myBet.cashoutMultiplier = res.multiplier;
