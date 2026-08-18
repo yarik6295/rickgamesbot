@@ -1,9 +1,8 @@
 -- =========================================================
 -- Gifts Case Simulator — схема базы данных (SQLite)
--- ВАЖНО: coins_balance — ПОЛНОСТЬЮ ВИРТУАЛЬНАЯ валюта.
--- Её нельзя купить за реальные деньги и нельзя вывести.
--- Пополняется только через игровые механики (ежедневный бонус,
--- достижения, рефералы) — см. userRoutes.
+-- ВАЖНО: coins_balance — игровая виртуальная валюта приложения.
+-- Кнопка пополнения финансируется подтверждёнными Telegram Stars (XTR),
+-- но coins_balance не является балансом Telegram Stars и не выводится автоматически.
 -- =========================================================
 
 -- Пользователи (привязаны к Telegram ID)
@@ -105,3 +104,21 @@ CREATE TABLE IF NOT EXISTS active_rounds (
 CREATE INDEX IF NOT EXISTS idx_transactions_user ON transactions(user_id);
 CREATE INDEX IF NOT EXISTS idx_case_items_case ON case_items(case_id);
 CREATE INDEX IF NOT EXISTS idx_game_rounds_user ON game_rounds(user_id);
+
+
+-- Платежи Telegram Stars для пополнения игрового баланса.
+-- Реальное пополнение происходит только после successful_payment от Telegram.
+CREATE TABLE IF NOT EXISTS star_payments (
+    id                         INTEGER PRIMARY KEY AUTOINCREMENT,
+    payment_id                 TEXT UNIQUE NOT NULL,
+    user_id                    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    telegram_id                INTEGER NOT NULL,
+    stars_amount               INTEGER NOT NULL,
+    payload                    TEXT UNIQUE NOT NULL,
+    status                     TEXT NOT NULL CHECK(status IN ('pending','paid','cancelled')),
+    telegram_payment_charge_id TEXT UNIQUE,
+    created_at                 DATETIME DEFAULT CURRENT_TIMESTAMP,
+    paid_at                    DATETIME
+);
+
+CREATE INDEX IF NOT EXISTS idx_star_payments_user ON star_payments(user_id);

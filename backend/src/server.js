@@ -22,6 +22,7 @@ async function start() {
     const userRoutes = require('./routes/user.routes');
     const gamesRoutes = require('./routes/games.routes');
     const leaderboardRoutes = require('./routes/leaderboard.routes');
+    const paymentsRoutes = require('./routes/payments.routes');
 
     const app = express();
     const PORT = process.env.PORT || 3000;
@@ -38,6 +39,7 @@ async function start() {
     app.use('/api/user', userRoutes);
     app.use('/api/games', gamesRoutes);
     app.use('/api/leaderboard', leaderboardRoutes);
+    app.use('/api', paymentsRoutes);
 
     app.get('/api/health', (req, res) => res.json({ status: 'ok', ts: Date.now() }));
 
