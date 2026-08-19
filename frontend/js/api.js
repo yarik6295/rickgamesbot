@@ -36,6 +36,9 @@ const Api = {
 
   getProfile: () => apiRequest('/user/me'),
   getTransactions: () => apiRequest('/user/transactions'),
+  createPromo: (amount, maxUses) => apiRequest('/promos/create', { method: 'POST', body: { amount, maxUses } }),
+  redeemPromo: (code) => apiRequest('/promos/redeem', { method: 'POST', body: { code } }),
+  getMyPromos: () => apiRequest('/promos/mine'),
   createTopupInvoice: (amount) => apiRequest('/user/topup/invoice', { method: 'POST', body: { amount } }),
   getTopupStatus: (paymentId) => apiRequest(`/user/topup/status/${encodeURIComponent(paymentId)}`),
 

@@ -410,6 +410,7 @@ async function loadProfile() {
 
     const { transactions } = await Api.getTransactions();
     renderTransactions(transactions);
+    await loadMyPromos();
   } catch (e) {
     showToast(e.message, 'error');
   }
@@ -444,6 +445,102 @@ function renderTransactions(transactions) {
     list.appendChild(row);
   });
 }
+
+
+/* ============================= ПРОМОКОДЫ ============================= */
+
+function openPromoModal(mode) {
+  const create = $('#promo-create-form');
+  const redeem = $('#promo-redeem-form');
+  create.classList.toggle('hidden', mode !== 'create');
+  redeem.classList.toggle('hidden', mode !== 'redeem');
+  $('#promo-modal-title').textContent = mode === 'create' ? 'Создать промокод' : 'Активировать промокод';
+  $('#promo-modal-subtitle').textContent = mode === 'create'
+    ? 'Сумма за одно использование резервируется из твоего баланса сразу.'
+    : 'Введи код, который отправил тебе друг.';
+  $('#promo-modal').classList.remove('hidden');
+  const input = mode === 'create' ? $('#promo-create-amount') : $('#promo-redeem-code');
+  setTimeout(() => input.focus(), 50);
+}
+
+function closePromoModal() {
+  $('#promo-modal').classList.add('hidden');
+}
+
+async function loadMyPromos() {
+  const list = $('#promo-my-list');
+  if (!list) return;
+  try {
+    const { promos } = await Api.getMyPromos();
+    list.innerHTML = '';
+    if (!promos.length) {
+      list.innerHTML = '<p class="text-white/30 text-xs">Созданных промокодов пока нет.</p>';
+      return;
+    }
+    promos.slice(0, 5).forEach((p) => {
+      const row = document.createElement('div');
+      row.className = 'flex items-center justify-between bg-surface rounded-xl px-3 py-2 text-xs';
+      const stateText = p.status === 'exhausted' ? 'Использован' : `${p.used_uses}/${p.max_uses}`;
+      row.innerHTML = `
+        <span class="font-mono font-bold text-white">${p.code}</span>
+        <span class="text-white/50">${p.amount_coins} ⭐ × ${stateText}</span>
+      `;
+      list.appendChild(row);
+    });
+  } catch (e) {
+    list.innerHTML = '';
+  }
+}
+
+$('#btn-promo-create')?.addEventListener('click', () => openPromoModal('create'));
+$('#btn-promo-redeem')?.addEventListener('click', () => openPromoModal('redeem'));
+$('#btn-promo-close')?.addEventListener('click', closePromoModal);
+
+$('#btn-promo-create-submit')?.addEventListener('click', async () => {
+  const amount = Math.floor(Number($('#promo-create-amount').value));
+  const maxUses = Math.floor(Number($('#promo-create-uses').value));
+  if (!Number.isInteger(amount) || amount <= 0 || !Number.isInteger(maxUses) || maxUses <= 0) {
+    showToast('Укажи сумму и количество использований.', 'error');
+    return;
+  }
+  const btn = $('#btn-promo-create-submit');
+  btn.disabled = true;
+  try {
+    const result = await Api.createPromo(amount, maxUses);
+    updateBalanceUI(result.newBalance);
+    closePromoModal();
+    await loadProfile();
+    TelegramBridge.haptic('success');
+    showToast(`Промокод ${result.code} создан. Списано ${result.reserved} ⭐`);
+    setTimeout(() => window.prompt('Твой промокод — скопируй его:', result.code), 50);
+  } catch (e) {
+    showToast(e.message, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+$('#btn-promo-redeem-submit')?.addEventListener('click', async () => {
+  const code = $('#promo-redeem-code').value.trim().toUpperCase();
+  if (!code) {
+    showToast('Введи промокод.', 'error');
+    return;
+  }
+  const btn = $('#btn-promo-redeem-submit');
+  btn.disabled = true;
+  try {
+    const result = await Api.redeemPromo(code);
+    updateBalanceUI(result.newBalance);
+    closePromoModal();
+    await loadProfile();
+    TelegramBridge.haptic('success');
+    showToast(`Промокод активирован: +${result.amount} ⭐`);
+  } catch (e) {
+    showToast(e.message, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+});
 
 /* ============================= ПОПОЛНЕНИЕ БАЛАНСА ============================= */
 

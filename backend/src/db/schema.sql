@@ -1,5 +1,5 @@
 -- =========================================================
--- Gifts Case Simulator — схема базы данных (SQLite)
+-- Rick Games — схема базы данных (SQLite)
 -- ВАЖНО: coins_balance — ПОЛНОСТЬЮ ВИРТУАЛЬНАЯ валюта.
 -- Её нельзя купить за реальные деньги и нельзя вывести.
 -- Пополняется только через игровые механики (ежедневный бонус,
@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS transactions (
     user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     type            TEXT NOT NULL CHECK(type IN (
                         'daily_bonus','case_open','sell_item','admin_adjust',
-                        'game_bet','game_win','self_topup','stars_topup'
+                        'game_bet','game_win','self_topup','stars_topup','promo_create','promo_redeem'
                     )),
     amount_coins    INTEGER NOT NULL,                 -- +начисление / -списание
     balance_after   INTEGER NOT NULL,
@@ -124,3 +124,32 @@ CREATE TABLE IF NOT EXISTS star_payments (
 
 CREATE INDEX IF NOT EXISTS idx_star_payments_user ON star_payments(user_id);
 CREATE INDEX IF NOT EXISTS idx_star_payments_payload ON star_payments(payload);
+
+
+-- Промокоды/чеки внутреннего баланса.
+-- При создании код резервирует amount_coins * max_uses с баланса создателя.
+-- Каждое успешное погашение переводит одну такую долю новому пользователю.
+CREATE TABLE IF NOT EXISTS promo_codes (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    code            TEXT UNIQUE NOT NULL,
+    creator_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    amount_coins    INTEGER NOT NULL CHECK(amount_coins > 0),
+    max_uses        INTEGER NOT NULL CHECK(max_uses > 0),
+    used_uses       INTEGER NOT NULL DEFAULT 0,
+    status          TEXT NOT NULL CHECK(status IN ('active','exhausted','cancelled')) DEFAULT 'active',
+    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS promo_redemptions (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    promo_id        INTEGER NOT NULL REFERENCES promo_codes(id) ON DELETE CASCADE,
+    user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    amount_coins    INTEGER NOT NULL,
+    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(promo_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_promo_codes_creator ON promo_codes(creator_user_id);
+CREATE INDEX IF NOT EXISTS idx_promo_redemptions_promo ON promo_redemptions(promo_id);
+CREATE INDEX IF NOT EXISTS idx_promo_redemptions_user ON promo_redemptions(user_id);

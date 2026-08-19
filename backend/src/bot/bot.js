@@ -2,6 +2,7 @@ require('dotenv').config();
 const db = require('../db/database');
 const { getOrCreateUser } = require('../services/userService');
 const { callBotApi } = require('../services/telegramApi');
+const { createPromoCode, redeemPromoCode } = require('../services/promoService');
 
 // URL Mini App (то, что задано в @BotFather → Bot Settings → Menu Button / Web App).
 // Без него кнопка "Открыть Mini App" просто не показывается, чтобы не отправлять
@@ -22,7 +23,7 @@ function mainMenuKeyboard() {
         { text: '🏆 Топ игроков', callback_data: 'menu:leaderboard' },
     ]);
     rows.push([
-        { text: '🗃 Кейсы', callback_data: 'menu:cases' },
+        { text: '🎟 Промокоды', callback_data: 'menu:promos' },
         { text: '📜 История', callback_data: 'menu:history' },
     ]);
     rows.push([{ text: 'ℹ️ О проекте', callback_data: 'menu:about' }]);
@@ -47,14 +48,12 @@ function welcomeText(firstName) {
     return [
         `👋 Привет${name}!`,
         '',
-        '*Bulkster Games* — демо-проект: кейсы, инвентарь и казино-стиль игры на',
-        'полностью виртуальном балансе.',
+        '*Rick Games* — мини-игры и виртуальный баланс.',
         '',
-        'Прямо здесь, в чате, доступны профиль, баланс, каталог кейсов, история',
-        'операций и таблица лидеров. Сами игры (Crash, Mines, Plinko, Towers и',
-        'другие) удобнее открывать в Mini App — там анимации и полноценный интерфейс.',
+        'Здесь можно посмотреть профиль, открыть промокоды, историю операций',
+        'и таблицу лидеров. Для самих игр используй Mini App.',
         '',
-        'Выберите раздел 👇',
+        'Меню всегда доступно командой /menu 👇',
     ].join('\n');
 }
 
@@ -66,21 +65,80 @@ async function profileText(telegramUser) {
         `Имя: ${user.first_name || 'Игрок'}`,
         `Уровень аккаунта: ${user.account_level}`,
         `Баланс: ${user.coins_balance} 🪙`,
-        `Кейсов открыто: ${user.cases_opened}`,
     ].join('\n');
 }
 
-async function casesText() {
-    const cases = await db.all(`
-        SELECT name, price_coins, min_level FROM cases
-        WHERE is_active = 1 ORDER BY price_coins ASC
-    `);
-    if (!cases.length) return '🗃 *Кейсы*\n\nПока нет доступных кейсов.';
-    const lines = cases.map((c) => {
-        const levelNote = c.min_level > 1 ? ` (от ${c.min_level} ур.)` : '';
-        return `• ${c.name} — ${c.price_coins} 🪙${levelNote}`;
-    });
-    return ['🗃 *Каталог кейсов*', '', ...lines, '', 'Открыть кейс можно в Mini App.'].join('\n');
+
+function promoMenuKeyboard() {
+    return {
+        inline_keyboard: [
+            [
+                { text: '🎟 Активировать', callback_data: 'promo:redeem' },
+                { text: '➕ Создать', callback_data: 'promo:create' },
+            ],
+            [{ text: '⬅️ Назад в меню', callback_data: 'menu:home' }],
+        ],
+    };
+}
+
+function promoMenuText() {
+    return [
+        '🎟 *Промокоды*',
+        '',
+        'Создавай чек со своего баланса и отправляй код другу.',
+        'Или активируй код, который прислал тебе другой игрок.',
+        '',
+        'При создании сумма резервируется из твоего баланса.',
+    ].join('\n');
+}
+
+const promoFlow = new Map();
+
+async function handlePromoMessage(message) {
+    const chatId = message.chat.id;
+    const text = (message.text || '').trim();
+    const flow = promoFlow.get(chatId);
+    if (!flow) return false;
+
+    try {
+        if (flow.action === 'redeem') {
+            const result = await redeemPromoCode(message.from, text);
+            promoFlow.delete(chatId);
+            await sendMessage(chatId,
+                `✅ *Промокод активирован!*\n\nНачислено: +${result.amount} ⭐\nНовый баланс: ${result.newBalance} ⭐`,
+                mainMenuKeyboard());
+            return true;
+        }
+        if (flow.action === 'create' && flow.step === 'amount') {
+            const amount = Math.floor(Number(text));
+            if (!Number.isInteger(amount) || amount <= 0) {
+                await sendMessage(chatId, '❌ Введи положительное целое число — сумму за одно использование.');
+                return true;
+            }
+            flow.amount = amount;
+            flow.step = 'uses';
+            await sendMessage(chatId, 'Сколько раз можно использовать код? (от 1 до 1000)');
+            return true;
+        }
+        if (flow.action === 'create' && flow.step === 'uses') {
+            const maxUses = Math.floor(Number(text));
+            if (!Number.isInteger(maxUses) || maxUses < 1 || maxUses > 1000) {
+                await sendMessage(chatId, '❌ Введи число от 1 до 1000.');
+                return true;
+            }
+            const result = await createPromoCode(message.from, flow.amount, maxUses);
+            promoFlow.delete(chatId);
+            await sendMessage(chatId,
+                `✅ *Промокод создан!*\\n\\nКод: \`${result.code}\`\\nСумма за использование: ${result.amount} ⭐\\nИспользований: ${result.maxUses}\\nЗарезервировано: ${result.reserved} ⭐\\n\\nОтправь этот код другу.`,
+                mainMenuKeyboard());
+            return true;
+        }
+    } catch (err) {
+        promoFlow.delete(chatId);
+        await sendMessage(chatId, `❌ ${err.message}`);
+        return true;
+    }
+    return false;
 }
 
 const TX_TYPE_LABELS = {
@@ -130,8 +188,8 @@ async function leaderboardText() {
 const ABOUT_TEXT = [
     'ℹ️ *О проекте*',
     '',
-    'Bulkster Games — демонстрационный проект: кейсы, инвентарь и казино-стиль',
-    'игры на полностью виртуальном балансе. Вся генерация случайных',
+    'Rick Games — демонстрационный проект с мини-играми и виртуальным балансом.',
+    'Вся генерация случайных',
     'результатов происходит на сервере (provably-fair подход).',
     '',
     'Баланс — демо-монеты: они не выводятся ни в деньги, ни в подарки.',
@@ -174,6 +232,8 @@ async function handleMessage(message) {
     const chatId = message.chat.id;
     const text = (message.text || '').trim();
 
+    if (await handlePromoMessage(message)) return;
+
     if (text === '/start' || text.startsWith('/start ')) {
         await sendMessage(chatId, welcomeText(message.from?.first_name), mainMenuKeyboard());
         return;
@@ -181,6 +241,11 @@ async function handleMessage(message) {
 
     if (text === '/menu') {
         await sendMessage(chatId, welcomeText(message.from?.first_name), mainMenuKeyboard());
+        return;
+    }
+
+    if (text === '/promo') {
+        await sendMessage(chatId, promoMenuText(), promoMenuKeyboard());
     }
 }
 
@@ -196,6 +261,24 @@ async function handleCallbackQuery(callbackQuery) {
     }
 
     try {
+        if (data === 'promo:redeem') {
+            promoFlow.set(chatId, { action: 'redeem' });
+            await editMessage(chatId, messageId,
+                '🎟 *Активировать промокод*\n\nОтправь код следующим сообщением.',
+                backKeyboard());
+            await callBotApi('answerCallbackQuery', { callback_query_id: callbackQuery.id });
+            return;
+        }
+
+        if (data === 'promo:create') {
+            promoFlow.set(chatId, { action: 'create', step: 'amount' });
+            await editMessage(chatId, messageId,
+                '➕ *Создать промокод*\n\nНапиши сумму ⭐ за одно использование.',
+                backKeyboard());
+            await callBotApi('answerCallbackQuery', { callback_query_id: callbackQuery.id });
+            return;
+        }
+
         if (data === 'menu:home' || !data.startsWith('menu:')) {
             await editMessage(chatId, messageId, welcomeText(telegramUser?.first_name), mainMenuKeyboard());
             await callBotApi('answerCallbackQuery', { callback_query_id: callbackQuery.id });
@@ -207,8 +290,8 @@ async function handleCallbackQuery(callbackQuery) {
             case 'menu:profile':
                 text = await profileText(telegramUser);
                 break;
-            case 'menu:cases':
-                text = await casesText();
+            case 'menu:promos':
+                text = promoMenuText();
                 break;
             case 'menu:history':
                 text = await historyText(telegramUser);
@@ -247,4 +330,14 @@ async function handleUpdate(update) {
     }
 }
 
-module.exports = { handleUpdate };
+async function setBotCommands() {
+    await callBotApi('setMyCommands', {
+        commands: [
+            { command: 'start', description: 'Запустить Rick Games' },
+            { command: 'menu', description: 'Открыть меню' },
+            { command: 'promo', description: 'Промокоды' },
+        ],
+    });
+}
+
+module.exports = { handleUpdate, setBotCommands };
