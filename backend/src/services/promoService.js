@@ -31,12 +31,24 @@ async function createPromoCode(telegramUser, amount, maxUses) {
 
     return db.transaction(async (tx) => {
         const user = await getOrCreateUser(telegramUser, tx);
-        const balance = Number(user.coins_balance);
-        if (balance < reserved) {
+
+        // Баланс списываем атомарно. Нельзя брать balance из кэша/старого
+        // SELECT и потом записывать абсолютное значение: параллельная ставка,
+        // пополнение или второй чек могли изменить баланс между этими шагами.
+        const reservedRow = await tx.get(`
+            UPDATE users
+            SET coins_balance = coins_balance - ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ? AND coins_balance >= ?
+            RETURNING coins_balance
+        `, [reserved, user.id, reserved]);
+
+        if (!reservedRow) {
             const err = new Error(`Недостаточно баланса. Нужно зарезервировать ${reserved} ⭐.`);
             err.status = 400;
             throw err;
         }
+
+        const newBalance = Number(reservedRow.coins_balance);
 
         let code;
         for (let attempt = 0; attempt < 5; attempt++) {
@@ -53,12 +65,7 @@ async function createPromoCode(telegramUser, amount, maxUses) {
             throw err;
         }
 
-        const newBalance = balance - reserved;
         await tx.run(`
-            UPDATE users SET coins_balance = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
-        `, [newBalance, user.id]);
-
-        const inserted = await tx.run(`
             INSERT INTO promo_codes (code, creator_user_id, amount_coins, max_uses, used_uses, status)
             VALUES (?, ?, ?, ?, 0, 'active')
         `, [code, user.id, amount, maxUses]);
@@ -106,35 +113,61 @@ async function redeemPromoCode(telegramUser, rawCode) {
             throw err;
         }
 
-        const newBalance = Number(user.coins_balance) + Number(promo.amount_coins);
-        const nextUsed = Number(promo.used_uses) + 1;
-        const nextStatus = nextUsed >= Number(promo.max_uses) ? 'exhausted' : 'active';
-        const remainingUses = Math.max(0, Number(promo.max_uses) - nextUsed);
-
-        await tx.run(`
-            UPDATE users SET coins_balance = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
-        `, [newBalance, user.id]);
-
+        // Сначала создаём уникальную запись активации. Если тот же пользователь
+        // одновременно отправил несколько запросов, UNIQUE(promo_id,user_id)
+        // откатит всю транзакцию и баланс не изменится.
         await tx.run(`
             INSERT INTO promo_redemptions (promo_id, user_id, amount_coins)
             VALUES (?, ?, ?)
         `, [promo.id, user.id, promo.amount_coins]);
 
-        await tx.run(`
+        // Одновременно резервируем одну активацию. Условие в WHERE защищает
+        // последний доступный слот от гонки нескольких пользователей.
+        const claimed = await tx.get(`
             UPDATE promo_codes
-            SET used_uses = ?, status = ?, updated_at = CURRENT_TIMESTAMP
-            WHERE id = ? AND status = 'active'
-        `, [nextUsed, nextStatus, promo.id]);
+            SET used_uses = used_uses + 1,
+                status = CASE
+                    WHEN used_uses + 1 >= max_uses THEN 'exhausted'
+                    ELSE 'active'
+                END,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+              AND status = 'active'
+              AND used_uses < max_uses
+            RETURNING used_uses, max_uses, status
+        `, [promo.id]);
 
-        // Не пишем promo_* в transactions: у старых Turso-баз CHECK-ограничение
-        // могло быть создано без этих двух значений.
+        if (!claimed) {
+            const err = new Error('Чек только что закончился. Попробуйте другой.');
+            err.status = 409;
+            throw err;
+        }
+
+        // Начисление тоже атомарное — никакого SELECT -> вычисление -> UPDATE
+        // со старым балансом.
+        const credited = await tx.get(`
+            UPDATE users
+            SET coins_balance = coins_balance + ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            RETURNING coins_balance
+        `, [promo.amount_coins, user.id]);
+
+        if (!credited) {
+            throw new Error('Не удалось начислить баланс.');
+        }
+
+        const newBalance = Number(credited.coins_balance);
+        const nextUsed = Number(claimed.used_uses);
+        const maxUses = Number(claimed.max_uses);
+        const remainingUses = Math.max(0, maxUses - nextUsed);
+
         invalidateUserCache(user.id);
 
         return {
             code: promo.code,
             amount: Number(promo.amount_coins),
             usedUses: nextUsed,
-            maxUses: Number(promo.max_uses),
+            maxUses,
             remainingUses,
             newBalance,
             creatorTelegramId: promo.creator_telegram_id,
@@ -145,8 +178,6 @@ async function redeemPromoCode(telegramUser, rawCode) {
         };
     });
 
-    // Уведомление не должно ломать уже успешную активацию, если Telegram
-    // временно недоступен или пользователь заблокировал бота.
     if (result.creatorTelegramId) {
         const who = result.redeemerUsername
             ? `@${result.redeemerUsername}`
@@ -177,46 +208,50 @@ async function cancelPromoCode(telegramUser, promoId) {
 
     return db.transaction(async (tx) => {
         const user = await getOrCreateUser(telegramUser, tx);
-        const promo = await tx.get(`
-            SELECT id, code, amount_coins, max_uses, used_uses, status
-            FROM promo_codes
-            WHERE id = ? AND creator_user_id = ?
+
+        // Сначала атомарно закрываем чек и получаем фактическое число
+        // использованных слотов. Так параллельная активация не позволит
+        // вернуть создателю уже выданные звёзды.
+        const cancelled = await tx.get(`
+            UPDATE promo_codes
+            SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP
+            WHERE id = ? AND creator_user_id = ? AND status = 'active'
+            RETURNING id, code, amount_coins, max_uses, used_uses
         `, [id, user.id]);
 
-        if (!promo) {
-            const err = new Error('Чек не найден.');
-            err.status = 404;
-            throw err;
-        }
-        if (promo.status !== 'active') {
+        if (!cancelled) {
+            const exists = await tx.get(`
+                SELECT id FROM promo_codes WHERE id = ? AND creator_user_id = ?
+            `, [id, user.id]);
+            if (!exists) {
+                const err = new Error('Чек не найден.');
+                err.status = 404;
+                throw err;
+            }
             const err = new Error('Этот чек уже использован или деактивирован.');
             err.status = 400;
             throw err;
         }
 
-        const remainingUses = Math.max(0, Number(promo.max_uses) - Number(promo.used_uses));
-        const refund = remainingUses * Number(promo.amount_coins);
-        const newBalance = Number(user.coins_balance) + refund;
+        const remainingUses = Math.max(
+            0,
+            Number(cancelled.max_uses) - Number(cancelled.used_uses)
+        );
+        const refund = remainingUses * Number(cancelled.amount_coins);
 
-        const updated = await tx.run(`
-            UPDATE promo_codes
-            SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP
-            WHERE id = ? AND creator_user_id = ? AND status = 'active'
-        `, [promo.id, user.id]);
-        if (!updated.changes) {
-            const err = new Error('Чек уже изменён. Обнови список и попробуй снова.');
-            err.status = 409;
-            throw err;
-        }
+        const credited = await tx.get(`
+            UPDATE users
+            SET coins_balance = coins_balance + ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            RETURNING coins_balance
+        `, [refund, user.id]);
 
-        await tx.run(`
-            UPDATE users SET coins_balance = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
-        `, [newBalance, user.id]);
+        const newBalance = Number(credited.coins_balance);
         invalidateUserCache(user.id);
 
         return {
-            id: promo.id,
-            code: promo.code,
+            id: cancelled.id,
+            code: cancelled.code,
             refund,
             remainingUses,
             newBalance,

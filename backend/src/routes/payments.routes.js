@@ -76,15 +76,13 @@ router.post('/telegram/webhook', async (req, res) => {
                 `, [successfulPayment.telegram_payment_charge_id]);
                 if (duplicate) return;
 
-                const user = await tx.get(`SELECT id, coins_balance FROM users WHERE id = ?`, [payment.user_id]);
+                const user = await tx.get(`SELECT id FROM users WHERE id = ?`, [payment.user_id]);
                 if (!user) throw new Error('Пользователь платежа не найден');
 
-                const newBalance = Number(user.coins_balance) + Number(payment.stars_amount);
-
-                await tx.run(`
-                    UPDATE users SET coins_balance = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
-                `, [newBalance, user.id]);
-
+                // Сначала атомарно "забираем" pending-платёж себе. Это важно
+                // при повторной доставке successful_payment: второй webhook
+                // должен завершиться ДО изменения баланса, иначе возможен
+                // двойной топап.
                 const updated = await tx.run(`
                     UPDATE star_payments
                     SET status = 'paid', telegram_payment_charge_id = ?, paid_at = CURRENT_TIMESTAMP
@@ -92,6 +90,15 @@ router.post('/telegram/webhook', async (req, res) => {
                 `, [successfulPayment.telegram_payment_charge_id, payment.id]);
 
                 if (updated.changes !== 1) return;
+
+                const credited = await tx.get(`
+                    UPDATE users
+                    SET coins_balance = coins_balance + ?, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                    RETURNING coins_balance
+                `, [payment.stars_amount, user.id]);
+
+                const newBalance = Number(credited.coins_balance);
 
                 await tx.run(`
                     INSERT INTO transactions (user_id, type, amount_coins, balance_after, reference_id)
