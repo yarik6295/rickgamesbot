@@ -28,6 +28,8 @@ project/
 ├── backend/
 │   ├── src/
 │   │   ├── server.js                   # Express-приложение, монтирование роутов
+│   │   ├── bot/
+│   │   │   └── bot.js                  # Telegram-бот: /start и меню прямо в чате
 │   │   ├── db/
 │   │   │   ├── schema.sql              # DDL всех таблиц (users, cases, game_rounds, ...)
 │   │   │   ├── database.js             # Инициализация better-sqlite3
@@ -36,14 +38,16 @@ project/
 │   │   │   ├── cases.routes.js         # GET /api/cases, POST /:slug/open
 │   │   │   ├── inventory.routes.js     # GET /api/inventory, POST /:id/sell
 │   │   │   ├── user.routes.js          # профиль, ежедневный бонус, транзакции
-│   │   │   └── games.routes.js         # Crash / Mines / Plinko / Towers
+│   │   │   ├── games.routes.js         # Crash / Mines / Plinko / Towers
+│   │   │   └── payments.routes.js      # Stars-инвойсы + единый Telegram-вебхук
 │   │   ├── controllers/
 │   │   │   ├── caseController.js       # бизнес-логика открытия кейса
 │   │   │   └── gamesController.js      # бизнес-логика всех 4 игр
 │   │   ├── services/
 │   │   │   ├── rngService.js           # RNG для кейсов (crypto, взвешенный)
 │   │   │   ├── gamesService.js         # RNG/математика Crash/Mines/Plinko/Towers
-│   │   │   └── userService.js          # уровни аккаунта
+│   │   │   ├── userService.js          # уровни аккаунта
+│   │   │   └── telegramApi.js          # тонкая обёртка над Telegram Bot API
 │   │   └── middleware/
 │   │       └── telegramAuth.js         # валидация Telegram WebApp initData (HMAC)
 │   ├── package.json
@@ -58,6 +62,41 @@ project/
         ├── app.js                      # навигация, кейсы, инвентарь, профиль
         └── games.js                    # UI-логика 4 игр
 ```
+
+## Бот в чате (`/start`)
+
+`backend/src/bot/bot.js` обрабатывает Telegram-апдейты, которые приходят на
+тот же вебхук, что и платежи Stars (`POST /api/user/telegram/webhook`):
+
+- `/start` (и `/menu`) — приветствие и инлайн-меню прямо в чате, без
+  обязательного перехода в Mini App:
+  - **🎮 Открыть Mini App** — `web_app`-кнопка (показывается, только если
+    задан `WEBAPP_URL`);
+  - **👤 Профиль** — имя, уровень, баланс, число открытых кейсов;
+  - **🗃 Кейсы** — каталог кейсов и их цена (только просмотр — открытие
+    кейса, как и сами игры, остаётся в Mini App);
+  - **📜 История** — последние 10 транзакций баланса;
+  - **🏆 Топ игроков** — рейтинг по сумме ставок;
+  - **ℹ️ О проекте** — то же самое пояснение про демо-валюту, что и в этом
+    README.
+- Разделы рендерятся через `editMessageText` (одно и то же сообщение,
+  кнопка «⬅️ Назад в меню» возвращает на стартовый экран).
+
+Сознательно **не** реализовано: сами ставочные игры (Crash/Mines/Plinko/
+Towers/Wheel/Upgrade и т.п.) внутри чата бота. Технически Telegram позволяет
+делать интерактивные мини-игры на встроенных dice-эмодзи (🎲🏀⚽🎯🎳🎰), но
+здесь баланс, которым делаются ставки, частично пополняется реальными
+Telegram Stars (см. `payments.routes.js`) — то есть это уже ставки в играх
+со случайным исходом за деньги, а не чисто демонстрационная механика. Приём
+денег под такие ставки почти везде подпадает под лицензируемую деятельность
+(см. предупреждение в начале README), поэтому подобные игры внутри бота не
+добавлены. Если хотите превратить проект в полностью безденежную демку —
+уберите `payments.routes.js`/`star_payments` и пополняйте баланс только
+некоммерческими механиками (ежедневный бонус и т.п.), тогда чат-игры на
+демо-валюте добавить безопасно.
+
+Чтобы кнопка меню в самом Telegram (рядом с полем ввода) тоже открывала
+Mini App, задайте её через `@BotFather` → *Bot Settings* → *Menu Button*.
 
 ## Игры
 

@@ -1,0 +1,250 @@
+require('dotenv').config();
+const db = require('../db/database');
+const { getOrCreateUser } = require('../services/userService');
+const { callBotApi } = require('../services/telegramApi');
+
+// URL Mini App (то, что задано в @BotFather → Bot Settings → Menu Button / Web App).
+// Без него кнопка "Открыть Mini App" просто не показывается, чтобы не отправлять
+// невалидную web_app-кнопку в Telegram.
+const WEBAPP_URL = process.env.WEBAPP_URL || '';
+
+// =========================================================
+// Клавиатуры
+// =========================================================
+
+function mainMenuKeyboard() {
+    const rows = [];
+    if (WEBAPP_URL) {
+        rows.push([{ text: '🎮 Открыть Mini App', web_app: { url: WEBAPP_URL } }]);
+    }
+    rows.push([
+        { text: '👤 Профиль', callback_data: 'menu:profile' },
+        { text: '🏆 Топ игроков', callback_data: 'menu:leaderboard' },
+    ]);
+    rows.push([
+        { text: '🗃 Кейсы', callback_data: 'menu:cases' },
+        { text: '📜 История', callback_data: 'menu:history' },
+    ]);
+    rows.push([{ text: 'ℹ️ О проекте', callback_data: 'menu:about' }]);
+    return { inline_keyboard: rows };
+}
+
+function backKeyboard() {
+    const rows = [];
+    if (WEBAPP_URL) {
+        rows.push([{ text: '🎮 Открыть Mini App', web_app: { url: WEBAPP_URL } }]);
+    }
+    rows.push([{ text: '⬅️ Назад в меню', callback_data: 'menu:home' }]);
+    return { inline_keyboard: rows };
+}
+
+// =========================================================
+// Тексты разделов
+// =========================================================
+
+function welcomeText(firstName) {
+    const name = firstName ? `, ${firstName}` : '';
+    return [
+        `👋 Привет${name}!`,
+        '',
+        '*Bulkster Games* — демо-проект: кейсы, инвентарь и казино-стиль игры на',
+        'полностью виртуальном балансе.',
+        '',
+        'Прямо здесь, в чате, доступны профиль, баланс, каталог кейсов, история',
+        'операций и таблица лидеров. Сами игры (Crash, Mines, Plinko, Towers и',
+        'другие) удобнее открывать в Mini App — там анимации и полноценный интерфейс.',
+        '',
+        'Выберите раздел 👇',
+    ].join('\n');
+}
+
+async function profileText(telegramUser) {
+    const user = await getOrCreateUser(telegramUser);
+    return [
+        '👤 *Профиль*',
+        '',
+        `Имя: ${user.first_name || 'Игрок'}`,
+        `Уровень аккаунта: ${user.account_level}`,
+        `Баланс: ${user.coins_balance} 🪙`,
+        `Кейсов открыто: ${user.cases_opened}`,
+    ].join('\n');
+}
+
+async function casesText() {
+    const cases = await db.all(`
+        SELECT name, price_coins, min_level FROM cases
+        WHERE is_active = 1 ORDER BY price_coins ASC
+    `);
+    if (!cases.length) return '🗃 *Кейсы*\n\nПока нет доступных кейсов.';
+    const lines = cases.map((c) => {
+        const levelNote = c.min_level > 1 ? ` (от ${c.min_level} ур.)` : '';
+        return `• ${c.name} — ${c.price_coins} 🪙${levelNote}`;
+    });
+    return ['🗃 *Каталог кейсов*', '', ...lines, '', 'Открыть кейс можно в Mini App.'].join('\n');
+}
+
+const TX_TYPE_LABELS = {
+    daily_bonus: 'Ежедневный бонус',
+    case_open: 'Открытие кейса',
+    sell_item: 'Продажа предмета',
+    admin_adjust: 'Корректировка',
+    game_bet: 'Ставка в игре',
+    game_win: 'Выигрыш в игре',
+    self_topup: 'Пополнение',
+    stars_topup: 'Пополнение Stars',
+};
+
+async function historyText(telegramUser) {
+    const user = await getOrCreateUser(telegramUser);
+    const rows = await db.all(`
+        SELECT type, amount_coins, balance_after, created_at
+        FROM transactions WHERE user_id = ? ORDER BY created_at DESC LIMIT 10
+    `, [user.id]);
+    if (!rows.length) return '📜 *История операций*\n\nПока нет ни одной операции.';
+    const lines = rows.map((t) => {
+        const sign = t.amount_coins >= 0 ? '+' : '';
+        const label = TX_TYPE_LABELS[t.type] || t.type;
+        return `${label}: ${sign}${t.amount_coins} 🪙 (баланс: ${t.balance_after})`;
+    });
+    return ['📜 *Последние операции*', '', ...lines].join('\n');
+}
+
+async function leaderboardText() {
+    const rows = await db.all(`
+        SELECT u.first_name, SUM(gr.bet_coins) AS total_wagered
+        FROM game_rounds gr
+        JOIN users u ON u.id = gr.user_id
+        GROUP BY u.id
+        ORDER BY total_wagered DESC
+        LIMIT 10
+    `);
+    if (!rows.length) return '🏆 *Топ игроков*\n\nПока никто не сделал ни одной ставки.';
+    const medals = ['🥇', '🥈', '🥉'];
+    const lines = rows.map((r, i) => {
+        const marker = medals[i] || `${i + 1}.`;
+        return `${marker} ${r.first_name || 'Игрок'} — ${Number(r.total_wagered)} 🪙`;
+    });
+    return ['🏆 *Топ игроков по объёму ставок*', '', ...lines].join('\n');
+}
+
+const ABOUT_TEXT = [
+    'ℹ️ *О проекте*',
+    '',
+    'Bulkster Games — демонстрационный проект: кейсы, инвентарь и казино-стиль',
+    'игры на полностью виртуальном балансе. Вся генерация случайных',
+    'результатов происходит на сервере (provably-fair подход).',
+    '',
+    'Баланс — демо-монеты: они не выводятся ни в деньги, ни в подарки.',
+].join('\n');
+
+// =========================================================
+// Отправка/редактирование сообщений
+// =========================================================
+
+async function sendMessage(chatId, text, keyboard) {
+    return callBotApi('sendMessage', {
+        chat_id: chatId,
+        text,
+        parse_mode: 'Markdown',
+        reply_markup: keyboard,
+    });
+}
+
+async function editMessage(chatId, messageId, text, keyboard) {
+    try {
+        return await callBotApi('editMessageText', {
+            chat_id: chatId,
+            message_id: messageId,
+            text,
+            parse_mode: 'Markdown',
+            reply_markup: keyboard,
+        });
+    } catch (err) {
+        // Например, "message is not modified" при повторном клике на тот же
+        // раздел — не критично, просто логируем и продолжаем.
+        console.warn('[bot] editMessageText failed:', err.message);
+    }
+}
+
+// =========================================================
+// Обработчики апдейтов
+// =========================================================
+
+async function handleMessage(message) {
+    const chatId = message.chat.id;
+    const text = (message.text || '').trim();
+
+    if (text === '/start' || text.startsWith('/start ')) {
+        await sendMessage(chatId, welcomeText(message.from?.first_name), mainMenuKeyboard());
+        return;
+    }
+
+    if (text === '/menu') {
+        await sendMessage(chatId, welcomeText(message.from?.first_name), mainMenuKeyboard());
+    }
+}
+
+async function handleCallbackQuery(callbackQuery) {
+    const chatId = callbackQuery.message?.chat?.id;
+    const messageId = callbackQuery.message?.message_id;
+    const data = callbackQuery.data || '';
+    const telegramUser = callbackQuery.from;
+
+    if (!chatId || !messageId) {
+        await callBotApi('answerCallbackQuery', { callback_query_id: callbackQuery.id }).catch(() => {});
+        return;
+    }
+
+    try {
+        if (data === 'menu:home' || !data.startsWith('menu:')) {
+            await editMessage(chatId, messageId, welcomeText(telegramUser?.first_name), mainMenuKeyboard());
+            await callBotApi('answerCallbackQuery', { callback_query_id: callbackQuery.id });
+            return;
+        }
+
+        let text;
+        switch (data) {
+            case 'menu:profile':
+                text = await profileText(telegramUser);
+                break;
+            case 'menu:cases':
+                text = await casesText();
+                break;
+            case 'menu:history':
+                text = await historyText(telegramUser);
+                break;
+            case 'menu:leaderboard':
+                text = await leaderboardText();
+                break;
+            case 'menu:about':
+                text = ABOUT_TEXT;
+                break;
+            default:
+                text = welcomeText(telegramUser?.first_name);
+        }
+
+        await editMessage(chatId, messageId, text, backKeyboard());
+        await callBotApi('answerCallbackQuery', { callback_query_id: callbackQuery.id });
+    } catch (err) {
+        console.error('[bot] callback_query error:', err);
+        await callBotApi('answerCallbackQuery', {
+            callback_query_id: callbackQuery.id,
+            text: 'Что-то пошло не так, попробуйте ещё раз.',
+        }).catch(() => {});
+    }
+}
+
+/**
+ * Единая точка входа для апдейтов из вебхука. Платёжные апдейты
+ * (pre_checkout_query / successful_payment) сюда не относятся —
+ * их обрабатывает payments.routes.js.
+ */
+async function handleUpdate(update) {
+    if (update.message && !update.message.successful_payment) {
+        await handleMessage(update.message);
+    } else if (update.callback_query) {
+        await handleCallbackQuery(update.callback_query);
+    }
+}
+
+module.exports = { handleUpdate };

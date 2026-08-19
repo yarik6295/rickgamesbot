@@ -4,29 +4,12 @@ const router = express.Router();
 const telegramAuth = require('../middleware/telegramAuth');
 const db = require('../db/database');
 const { getOrCreateUser, invalidateUserCache } = require('../services/userService');
+const { callBotApi, BOT_TOKEN } = require('../services/telegramApi');
+const bot = require('../bot/bot');
 require('dotenv').config();
 
-const BOT_TOKEN = process.env.BOT_TOKEN;
 const MAX_TOPUP_AMOUNT = Number(process.env.MAX_TOPUP_AMOUNT || 1000000);
 const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET || '';
-
-function botApiUrl(method) {
-    if (!BOT_TOKEN) throw new Error('BOT_TOKEN не задан');
-    return `https://api.telegram.org/bot${BOT_TOKEN}/${method}`;
-}
-
-async function callBotApi(method, body) {
-    const response = await fetch(botApiUrl(method), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok || !data.ok) {
-        throw new Error(data.description || `Telegram Bot API error (${response.status})`);
-    }
-    return data.result;
-}
 
 // Webhook НЕ защищён telegramAuth: Telegram не присылает Mini App initData.
 // Его защищает X-Telegram-Bot-Api-Secret-Token.
@@ -39,6 +22,14 @@ router.post('/telegram/webhook', async (req, res) => {
     }
 
     const update = req.body || {};
+
+    // Всё, что не связано с платежами (/start, меню, callback_query) —
+    // отдельный модуль. Ошибки там не должны ронять обработку платежей.
+    try {
+        await bot.handleUpdate(update);
+    } catch (err) {
+        console.error('[bot webhook]', err);
+    }
 
     try {
         if (update.pre_checkout_query) {
