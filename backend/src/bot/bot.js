@@ -23,7 +23,7 @@ function mainMenuKeyboard() {
         { text: '🏆 Топ игроков', callback_data: 'menu:leaderboard' },
     ]);
     rows.push([
-        { text: '🎟 Промокоды', callback_data: 'menu:promos' },
+        { text: '🎟 Чеки', callback_data: 'menu:promos' },
         { text: '📜 История', callback_data: 'menu:history' },
     ]);
     rows.push([{ text: 'ℹ️ О проекте', callback_data: 'menu:about' }]);
@@ -50,7 +50,7 @@ function welcomeText(firstName) {
         '',
         '*Rick Games* — мини-игры и виртуальный баланс.',
         '',
-        'Здесь можно посмотреть профиль, открыть промокоды, историю операций',
+        'Здесь можно посмотреть профиль, чеки, историю операций',
         'и таблицу лидеров. Для самих игр используй Mini App.',
         '',
         'Меню всегда доступно командой /menu 👇',
@@ -83,7 +83,7 @@ function promoMenuKeyboard() {
 
 function promoMenuText() {
     return [
-        '🎟 *Промокоды*',
+        '🎟 *Чеки*',
         '',
         'Создавай чек со своего баланса и отправляй код другу.',
         'Или активируй код, который прислал тебе другой игрок.',
@@ -105,7 +105,7 @@ async function handlePromoMessage(message) {
             const result = await redeemPromoCode(message.from, text);
             promoFlow.delete(chatId);
             await sendMessage(chatId,
-                `✅ *Промокод активирован!*\n\nНачислено: +${result.amount} ⭐\nНовый баланс: ${result.newBalance} ⭐`,
+                `✅ *Чек активирован!*\n\nНачислено: +${result.amount} ⭐\nНовый баланс: ${result.newBalance} ⭐`,
                 mainMenuKeyboard());
             return true;
         }
@@ -129,7 +129,7 @@ async function handlePromoMessage(message) {
             const result = await createPromoCode(message.from, flow.amount, maxUses);
             promoFlow.delete(chatId);
             await sendMessage(chatId,
-                `✅ *Промокод создан!*\\n\\nКод: \`${result.code}\`\\nСумма за использование: ${result.amount} ⭐\\nИспользований: ${result.maxUses}\\nЗарезервировано: ${result.reserved} ⭐\\n\\nОтправь этот код другу.`,
+                `✅ *Чек создан!*\n\nКод: \`${result.code}\`\nСумма за использование: ${result.amount} ⭐\nИспользований: ${result.maxUses}\nЗарезервировано: ${result.reserved} ⭐\n\nОтправь этот код другу.`,
                 mainMenuKeyboard());
             return true;
         }
@@ -244,7 +244,7 @@ async function handleMessage(message) {
         return;
     }
 
-    if (text === '/promo') {
+    if (text === '/promo' || text === '/checks' || text === '/cheque') {
         await sendMessage(chatId, promoMenuText(), promoMenuKeyboard());
     }
 }
@@ -264,7 +264,7 @@ async function handleCallbackQuery(callbackQuery) {
         if (data === 'promo:redeem') {
             promoFlow.set(chatId, { action: 'redeem' });
             await editMessage(chatId, messageId,
-                '🎟 *Активировать промокод*\n\nОтправь код следующим сообщением.',
+                '🎟 *Активировать чек*\n\nОтправь код следующим сообщением.',
                 backKeyboard());
             await callBotApi('answerCallbackQuery', { callback_query_id: callbackQuery.id });
             return;
@@ -273,7 +273,7 @@ async function handleCallbackQuery(callbackQuery) {
         if (data === 'promo:create') {
             promoFlow.set(chatId, { action: 'create', step: 'amount' });
             await editMessage(chatId, messageId,
-                '➕ *Создать промокод*\n\nНапиши сумму ⭐ за одно использование.',
+                '➕ *Создать чек*\n\nНапиши сумму ⭐ за одно использование.',
                 backKeyboard());
             await callBotApi('answerCallbackQuery', { callback_query_id: callbackQuery.id });
             return;
@@ -335,7 +335,7 @@ async function setBotCommands() {
         commands: [
             { command: 'start', description: 'Запустить Rick Games' },
             { command: 'menu', description: 'Открыть меню' },
-            { command: 'promo', description: 'Промокоды' },
+            { command: 'checks', description: 'Чеки' },
         ],
     });
 }

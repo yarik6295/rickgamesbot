@@ -454,7 +454,7 @@ function openPromoModal(mode) {
   const redeem = $('#promo-redeem-form');
   create.classList.toggle('hidden', mode !== 'create');
   redeem.classList.toggle('hidden', mode !== 'redeem');
-  $('#promo-modal-title').textContent = mode === 'create' ? 'Создать промокод' : 'Активировать промокод';
+  $('#promo-modal-title').textContent = mode === 'create' ? 'Создать чек' : 'Активировать чек';
   $('#promo-modal-subtitle').textContent = mode === 'create'
     ? 'Сумма за одно использование резервируется из твоего баланса сразу.'
     : 'Введи код, который отправил тебе друг.';
@@ -474,7 +474,7 @@ async function loadMyPromos() {
     const { promos } = await Api.getMyPromos();
     list.innerHTML = '';
     if (!promos.length) {
-      list.innerHTML = '<p class="text-white/30 text-xs">Созданных промокодов пока нет.</p>';
+      list.innerHTML = '<p class="text-white/30 text-xs">Созданных чеков пока нет.</p>';
       return;
     }
     promos.slice(0, 5).forEach((p) => {
@@ -511,8 +511,8 @@ $('#btn-promo-create-submit')?.addEventListener('click', async () => {
     closePromoModal();
     await loadProfile();
     TelegramBridge.haptic('success');
-    showToast(`Промокод ${result.code} создан. Списано ${result.reserved} ⭐`);
-    setTimeout(() => window.prompt('Твой промокод — скопируй его:', result.code), 50);
+    showToast(`Чек ${result.code} создан. Списано ${result.reserved} ⭐`);
+    setTimeout(() => window.prompt('Твой чек — скопируй его:', result.code), 50);
   } catch (e) {
     showToast(e.message, 'error');
   } finally {
@@ -523,7 +523,7 @@ $('#btn-promo-create-submit')?.addEventListener('click', async () => {
 $('#btn-promo-redeem-submit')?.addEventListener('click', async () => {
   const code = $('#promo-redeem-code').value.trim().toUpperCase();
   if (!code) {
-    showToast('Введи промокод.', 'error');
+    showToast('Введи чек.', 'error');
     return;
   }
   const btn = $('#btn-promo-redeem-submit');
@@ -534,7 +534,7 @@ $('#btn-promo-redeem-submit')?.addEventListener('click', async () => {
     closePromoModal();
     await loadProfile();
     TelegramBridge.haptic('success');
-    showToast(`Промокод активирован: +${result.amount} ⭐`);
+    showToast(`Чек активирован: +${result.amount} ⭐`);
   } catch (e) {
     showToast(e.message, 'error');
   } finally {

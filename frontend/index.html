@@ -45,7 +45,7 @@
      и пользователь продолжает видеть старое поведение, хотя на сервере уже
      лежат новые файлы. При каждом деплое с правками фронтенда — увеличивайте
      это число (APP_VERSION ниже и во всех тегах). -->
-<link rel="stylesheet" href="css/style.css?v=7" />
+<link rel="stylesheet" href="css/style.css?v=8" />
 </head>
 <body class="bg-bg text-white min-h-screen font-sans overflow-x-hidden">
 
@@ -453,7 +453,7 @@
     <div class="surface-card p-4 mt-4">
       <div class="flex items-center justify-between gap-3">
         <div>
-          <h4 class="font-bold">🎟 Промокоды</h4>
+          <h4 class="font-bold">🎟 Чеки</h4>
           <p class="text-white/40 text-xs mt-1">Создавай чеки со своего баланса или активируй код друга.</p>
         </div>
       </div>
@@ -489,7 +489,7 @@
 <div id="promo-modal" class="modal-overlay hidden">
   <div class="modal-card">
     <div class="text-4xl text-center mb-2">🎟️</div>
-    <h3 id="promo-modal-title" class="font-bold text-lg text-center mb-1">Промокоды</h3>
+    <h3 id="promo-modal-title" class="font-bold text-lg text-center mb-1">Чеки</h3>
     <p id="promo-modal-subtitle" class="text-white/50 text-sm text-center mb-4"></p>
 
     <div id="promo-create-form" class="hidden">
@@ -497,11 +497,11 @@
         class="w-full mb-3 px-4 py-3 rounded-xl bg-surface2 border border-white/10 text-center text-lg font-bold text-white focus:outline-none" />
       <input id="promo-create-uses" type="number" inputmode="numeric" min="1" max="1000" step="1" placeholder="Количество использований"
         class="w-full mb-4 px-4 py-3 rounded-xl bg-surface2 border border-white/10 text-center text-lg font-bold text-white focus:outline-none" />
-      <button id="btn-promo-create-submit" class="btn-primary w-full py-3">Создать промокод</button>
+      <button id="btn-promo-create-submit" class="btn-primary w-full py-3">Создать чек</button>
     </div>
 
     <div id="promo-redeem-form" class="hidden">
-      <input id="promo-redeem-code" type="text" maxlength="12" autocomplete="off" placeholder="Код промокода"
+      <input id="promo-redeem-code" type="text" maxlength="12" autocomplete="off" placeholder="Код чека"
         class="w-full mb-4 px-4 py-3 rounded-xl bg-surface2 border border-white/10 text-center text-lg font-bold uppercase text-white focus:outline-none" />
       <button id="btn-promo-redeem-submit" class="btn-primary w-full py-3">Активировать</button>
     </div>

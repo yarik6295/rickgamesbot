@@ -23,6 +23,8 @@ async function start() {
     const gamesRoutes = require('./routes/games.routes');
     const leaderboardRoutes = require('./routes/leaderboard.routes');
     const paymentsRoutes = require('./routes/payments.routes');
+    const promoRoutes = require('./routes/promo.routes');
+    const bot = require('./bot/bot');
 
     const app = express();
     const PORT = process.env.PORT || 3000;
@@ -42,6 +44,8 @@ async function start() {
     app.use('/api/user', userRoutes);
     app.use('/api/games', gamesRoutes);
     app.use('/api/leaderboard', leaderboardRoutes);
+    // Чеки: API для создания/активации внутренних чеков баланса.
+    app.use('/api/promos', promoRoutes);
 
     app.get('/api/health', (req, res) => res.json({ status: 'ok', ts: Date.now() }));
 
@@ -55,7 +59,8 @@ async function start() {
     });
 
     app.listen(PORT, () => {
-        console.log(`🎁 Gifts Case Simulator API запущен на http://localhost:${PORT}`);
+        console.log(`🎮 Rick Games API запущен на http://localhost:${PORT}`);
+        bot.setBotCommands().catch((err) => console.warn('[bot] Не удалось обновить список команд:', err.message));
     });
 }
 
