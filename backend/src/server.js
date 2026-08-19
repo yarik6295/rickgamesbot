@@ -36,9 +36,8 @@ async function start() {
     app.use(express.static(path.join(__dirname, '../../frontend')));
 
     app.use('/api/cases', casesRoutes);
-    // ВАЖНО: paymentRoutes ставим раньше userRoutes.
-    // /telegram/webhook должен быть доступен без Mini App initData,
-    // иначе telegramAuth из userRoutes перехватит webhook и вернёт 401.
+    // Telegram Stars: webhook должен быть подключён ДО userRoutes,
+    // потому что webhook не содержит Mini App initData.
     app.use('/api/user', paymentsRoutes);
     app.use('/api/user', userRoutes);
     app.use('/api/games', gamesRoutes);
