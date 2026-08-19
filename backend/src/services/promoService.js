@@ -61,12 +61,6 @@ async function createPromoCode(telegramUser, amount, maxUses) {
             INSERT INTO promo_codes (code, creator_user_id, amount_coins, max_uses, used_uses, status)
             VALUES (?, ?, ?, ?, 0, 'active')
         `, [code, user.id, amount, maxUses]);
-
-        await tx.run(`
-            INSERT INTO transactions (user_id, type, amount_coins, balance_after, reference_id)
-            VALUES (?, 'promo_create', ?, ?, ?)
-        `, [user.id, -reserved, newBalance, inserted.lastInsertRowid]);
-
         invalidateUserCache(user.id);
         return { code, amount, maxUses, reserved, newBalance };
     });
@@ -75,7 +69,7 @@ async function createPromoCode(telegramUser, amount, maxUses) {
 async function redeemPromoCode(telegramUser, rawCode) {
     const code = String(rawCode || '').trim().toUpperCase();
     if (!/^[A-F0-9]{12}$/.test(code)) {
-        const err = new Error('Неверный формат промокода.');
+        const err = new Error('Неверный формат чека.');
         err.status = 400;
         throw err;
     }
@@ -88,12 +82,12 @@ async function redeemPromoCode(telegramUser, rawCode) {
         `, [code]);
 
         if (!promo || promo.status !== 'active' || Number(promo.used_uses) >= Number(promo.max_uses)) {
-            const err = new Error('Промокод не найден или уже полностью использован.');
+            const err = new Error('Чек не найден или уже полностью использован.');
             err.status = 400;
             throw err;
         }
         if (Number(promo.creator_user_id) === Number(user.id)) {
-            const err = new Error('Нельзя активировать собственный промокод.');
+            const err = new Error('Нельзя активировать собственный чек.');
             err.status = 400;
             throw err;
         }
@@ -102,7 +96,7 @@ async function redeemPromoCode(telegramUser, rawCode) {
             SELECT id FROM promo_redemptions WHERE promo_id = ? AND user_id = ?
         `, [promo.id, user.id]);
         if (already) {
-            const err = new Error('Ты уже активировал этот промокод.');
+            const err = new Error('Ты уже активировал этот чек.');
             err.status = 400;
             throw err;
         }
@@ -125,12 +119,6 @@ async function redeemPromoCode(telegramUser, rawCode) {
             SET used_uses = ?, status = ?, updated_at = CURRENT_TIMESTAMP
             WHERE id = ? AND status = 'active'
         `, [nextUsed, nextStatus, promo.id]);
-
-        await tx.run(`
-            INSERT INTO transactions (user_id, type, amount_coins, balance_after, reference_id)
-            VALUES (?, 'promo_redeem', ?, ?, ?)
-        `, [user.id, promo.amount_coins, newBalance, promo.id]);
-
         invalidateUserCache(user.id);
         return {
             code: promo.code,
