@@ -41,7 +41,7 @@ function mainMenuKeyboard() {
         { text: '👤 Профиль', callback_data: 'menu:profile' },
         { text: '🎟 Чеки', callback_data: 'menu:promos' },
     ]);
-    rows.push([{ text: 'ℹ️ О проекте', callback_data: 'menu:about' }]);
+    rows.push([{ text: '⭐ Играть', callback_data: 'menu:play' }]);
     return { inline_keyboard: rows };
 }
 
@@ -311,13 +311,15 @@ async function sendAbout(chatId) {
     await sendMessage(chatId, ABOUT_TEXT, backKeyboard());
 }
 
+const PLAY_TEXT = [
+    `${KB_PLAY}`,
+    '',
+    'Раздел временно недоступен — мы его дорабатываем.',
+    'Пока что все игры доступны через Mini App.',
+].join('\n');
+
 async function sendPlayPlaceholder(chatId) {
-    await sendMessage(chatId, [
-        `${KB_PLAY}`,
-        '',
-        'Раздел временно недоступен — мы его дорабатываем.',
-        'Пока что все игры доступны через Mini App.',
-    ].join('\n'), backKeyboard());
+    await sendMessage(chatId, PLAY_TEXT, backKeyboard());
 }
 
 async function handleMessage(message) {
@@ -427,6 +429,9 @@ async function handleCallbackQuery(callbackQuery) {
                 break;
             case 'menu:about':
                 text = ABOUT_TEXT;
+                break;
+            case 'menu:play':
+                text = PLAY_TEXT;
                 break;
             default:
                 text = welcomeText(telegramUser?.first_name);
