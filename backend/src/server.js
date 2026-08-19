@@ -36,11 +36,13 @@ async function start() {
     app.use(express.static(path.join(__dirname, '../../frontend')));
 
     app.use('/api/cases', casesRoutes);
+    // ВАЖНО: paymentRoutes ставим раньше userRoutes.
+    // /telegram/webhook должен быть доступен без Mini App initData,
+    // иначе telegramAuth из userRoutes перехватит webhook и вернёт 401.
+    app.use('/api/user', paymentsRoutes);
     app.use('/api/user', userRoutes);
     app.use('/api/games', gamesRoutes);
     app.use('/api/leaderboard', leaderboardRoutes);
-    // Telegram Stars: invoice/status требуют Telegram initData, webhook — нет.
-    app.use('/api/user', paymentsRoutes);
 
     app.get('/api/health', (req, res) => res.json({ status: 'ok', ts: Date.now() }));
 
