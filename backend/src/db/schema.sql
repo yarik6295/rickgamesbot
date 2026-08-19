@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS users (
     xp              INTEGER NOT NULL DEFAULT 0,
     last_daily_bonus_at DATETIME,                     -- когда последний раз забирал ежедневный бонус
     last_free_case_at DATETIME,                       -- когда последний раз открывал бесплатный кейс (раз в 24ч)
+    leaderboard_anonymous INTEGER NOT NULL DEFAULT 1, -- 1 = в топе игроков показывается как "Аноним" (по умолчанию), 0 = показывается имя
     created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP
 );

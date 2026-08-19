@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db/database');
 const telegramAuth = require('../middleware/telegramAuth');
-const { getOrCreateUser, invalidateUserCache } = require('../services/userService');
+const { getOrCreateUser, invalidateUserCache, setLeaderboardAnonymous } = require('../services/userService');
 require('dotenv').config();
 
 router.use(telegramAuth);
@@ -13,6 +13,22 @@ router.use(telegramAuth);
 router.get('/me', async (req, res) => {
     const user = await getOrCreateUser(req.telegramUser);
     res.json({ user });
+});
+
+/**
+ * POST /api/user/leaderboard-visibility
+ * body: { anonymous: boolean }
+ *
+ * Управляет тем, показывается ли пользователь в топе игроков (Mini App
+ * и бот) под своим именем/фото или как "Аноним". По умолчанию у всех
+ * новых пользователей анонимность включена (см. schema.sql).
+ */
+router.post('/leaderboard-visibility', async (req, res) => {
+    const user = await getOrCreateUser(req.telegramUser);
+    const anonymous = !!req.body?.anonymous;
+    await setLeaderboardAnonymous(user.id, anonymous);
+    const updated = await getOrCreateUser(req.telegramUser);
+    res.json({ user: updated });
 });
 
 /**

@@ -101,10 +101,20 @@ function computeLevel(casesOpened) {
     return 1;
 }
 
+/**
+ * Включает/выключает анонимность в топе игроков (leaderboard_anonymous).
+ * По умолчанию у новых пользователей она включена (см. schema.sql).
+ */
+async function setLeaderboardAnonymous(userId, anonymous, executor = db) {
+    await executor.run(`UPDATE users SET leaderboard_anonymous = ? WHERE id = ?`, [anonymous ? 1 : 0, userId]);
+    invalidateUserCache(userId);
+}
+
 module.exports = {
     getOrCreateUser,
     getUserById,
     computeLevel,
     touchCachedBalance,
     invalidateUserCache,
+    setLeaderboardAnonymous,
 };

@@ -73,10 +73,21 @@ async function transaction(fn) {
  * last_free_case_at, удаление "подарков"). При переезде на Turso база
  * создаётся с нуля, поэтому все эти миграции не нужны — CREATE TABLE
  * IF NOT EXISTS в schema.sql сразу создаёт актуальную схему.
+ *
+ * Исключение — leaderboard_anonymous: это ALTER на уже существующую
+ * таблицу users, CREATE TABLE IF NOT EXISTS его не добавит на базах,
+ * созданных до этого поля. Оборачиваем в try/catch — на свежих базах
+ * колонка уже есть из schema.sql, и ALTER просто упадёт с "duplicate
+ * column", что нормально и безопасно игнорировать.
  */
 async function init() {
     const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf-8');
     await client.executeMultiple(schema);
+    try {
+        await client.execute(`ALTER TABLE users ADD COLUMN leaderboard_anonymous INTEGER NOT NULL DEFAULT 1`);
+    } catch (err) {
+        // Колонка уже существует — ожидаемо на новых базах и при повторном запуске.
+    }
 }
 
 module.exports = { get, all, run, transaction, init };

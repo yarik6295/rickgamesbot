@@ -36,6 +36,7 @@ const Api = {
 
   getProfile: () => apiRequest('/user/me'),
   getTransactions: () => apiRequest('/user/transactions'),
+  setLeaderboardVisibility: (anonymous) => apiRequest('/user/leaderboard-visibility', { method: 'POST', body: { anonymous } }),
   createPromo: (amount, maxUses) => apiRequest('/promos/create', { method: 'POST', body: { amount, maxUses } }),
   redeemPromo: (code) => apiRequest('/promos/redeem', { method: 'POST', body: { code } }),
   getMyPromos: () => apiRequest('/promos/mine'),

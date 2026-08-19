@@ -1,6 +1,6 @@
 require('dotenv').config();
 const db = require('../db/database');
-const { getOrCreateUser } = require('../services/userService');
+const { getOrCreateUser, setLeaderboardAnonymous } = require('../services/userService');
 const { callBotApi } = require('../services/telegramApi');
 const { createPromoCode, redeemPromoCode, cancelPromoCode, getMyPromos } = require('../services/promoService');
 
@@ -54,19 +54,6 @@ function backKeyboard() {
     return { inline_keyboard: rows };
 }
 
-// Клавиатура раздела «Профиль»: история и топ игроков теперь живут здесь.
-function profileKeyboard() {
-    return {
-        inline_keyboard: [
-            [
-                { text: '📜 История', callback_data: 'menu:history' },
-                { text: '🏆 Топ игроков', callback_data: 'menu:leaderboard' },
-            ],
-            [{ text: '⬅️ Назад в меню', callback_data: 'menu:home' }],
-        ],
-    };
-}
-
 // Клавиатура для подразделов профиля (история / топ игроков) — ведёт назад в профиль.
 function backToProfileKeyboard() {
     return {
@@ -92,15 +79,36 @@ function welcomeText(firstName) {
     ].join('\n');
 }
 
-async function profileText(telegramUser) {
+// Текст + клавиатура раздела «Профиль», включая переключатель анонимности
+// в топе игроков (история и топ игроков — тоже кнопки отсюда).
+async function profileData(telegramUser) {
     const user = await getOrCreateUser(telegramUser);
-    return [
+    const anonymous = !!user.leaderboard_anonymous;
+    const text = [
         '👤 *Профиль*',
         '',
         `Имя: ${user.first_name || 'Игрок'}`,
         `Уровень аккаунта: ${user.account_level}`,
         `Баланс: ${user.coins_balance} ⭐`,
+        '',
+        `Видимость в топе игроков: ${anonymous ? '🕶 Анонимно' : '👁 Видно имя'}`,
     ].join('\n');
+
+    const keyboard = {
+        inline_keyboard: [
+            [
+                { text: '📜 История', callback_data: 'menu:history' },
+                { text: '🏆 Топ игроков', callback_data: 'menu:leaderboard' },
+            ],
+            [{
+                text: anonymous ? '👁 Показывать моё имя в топе' : '🕶 Скрыть моё имя в топе',
+                callback_data: 'profile:toggle_anon',
+            }],
+            [{ text: '⬅️ Назад в меню', callback_data: 'menu:home' }],
+        ],
+    };
+
+    return { text, keyboard };
 }
 
 
@@ -229,9 +237,9 @@ async function historyText(telegramUser) {
     return ['📜 *Последние операции*', '', ...lines].join('\n');
 }
 
-async function leaderboardText() {
+async function leaderboardText(telegramUser) {
     const rows = await db.all(`
-        SELECT u.first_name, SUM(gr.bet_coins) AS total_wagered
+        SELECT u.telegram_id, u.first_name, u.leaderboard_anonymous, SUM(gr.bet_coins) AS total_wagered
         FROM game_rounds gr
         JOIN users u ON u.id = gr.user_id
         GROUP BY u.id
@@ -242,7 +250,9 @@ async function leaderboardText() {
     const medals = ['🥇', '🥈', '🥉'];
     const lines = rows.map((r, i) => {
         const marker = medals[i] || `${i + 1}.`;
-        return `${marker} ${r.first_name || 'Игрок'} — ${Number(r.total_wagered)} ⭐`;
+        const isYou = telegramUser?.id != null && Number(r.telegram_id) === Number(telegramUser.id);
+        const name = isYou ? 'Вы' : (r.leaderboard_anonymous ? 'Аноним' : (r.first_name || 'Игрок'));
+        return `${marker} ${name} — ${Number(r.total_wagered)} ⭐`;
     });
     return ['🏆 *Топ игроков по объёму ставок*', '', ...lines].join('\n');
 }
@@ -299,7 +309,8 @@ async function sendMainMenu(chatId, firstName) {
 }
 
 async function sendProfile(chatId, telegramUser) {
-    await sendMessage(chatId, await profileText(telegramUser), profileKeyboard());
+    const profile = await profileData(telegramUser);
+    await sendMessage(chatId, profile.text, profile.keyboard);
 }
 
 async function sendChecks(chatId, telegramUser) {
@@ -404,6 +415,19 @@ async function handleCallbackQuery(callbackQuery) {
             return;
         }
 
+        if (data === 'profile:toggle_anon') {
+            const user = await getOrCreateUser(telegramUser);
+            const newAnonymous = !user.leaderboard_anonymous;
+            await setLeaderboardAnonymous(user.id, newAnonymous);
+            const profile = await profileData(telegramUser);
+            await editMessage(chatId, messageId, profile.text, profile.keyboard);
+            await callBotApi('answerCallbackQuery', {
+                callback_query_id: callbackQuery.id,
+                text: newAnonymous ? 'Теперь вы анонимны в топе игроков' : 'Теперь в топе видно ваше имя',
+            });
+            return;
+        }
+
         if (data === 'menu:home' || !data.startsWith('menu:')) {
             await editMessage(chatId, messageId, welcomeText(telegramUser?.first_name), mainMenuKeyboard());
             await callBotApi('answerCallbackQuery', { callback_query_id: callbackQuery.id });
@@ -413,7 +437,7 @@ async function handleCallbackQuery(callbackQuery) {
         let text;
         switch (data) {
             case 'menu:profile':
-                text = await profileText(telegramUser);
+                text = (await profileData(telegramUser)).text;
                 break;
             case 'menu:promos':
                 {
@@ -425,7 +449,7 @@ async function handleCallbackQuery(callbackQuery) {
                 text = await historyText(telegramUser);
                 break;
             case 'menu:leaderboard':
-                text = await leaderboardText();
+                text = await leaderboardText(telegramUser);
                 break;
             case 'menu:about':
                 text = ABOUT_TEXT;
@@ -441,7 +465,7 @@ async function handleCallbackQuery(callbackQuery) {
         if (data === 'menu:promos') {
             keyboard = (await promoMenuData(telegramUser)).keyboard;
         } else if (data === 'menu:profile') {
-            keyboard = profileKeyboard();
+            keyboard = (await profileData(telegramUser)).keyboard;
         } else if (data === 'menu:history' || data === 'menu:leaderboard') {
             keyboard = backToProfileKeyboard();
         } else {

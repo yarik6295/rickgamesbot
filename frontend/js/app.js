@@ -406,6 +406,11 @@ async function loadProfile() {
     $('#profile-cases').textContent = user.cases_opened;
     $('#profile-balance').textContent = user.coins_balance;
 
+    // По умолчанию (если поле почему-то не пришло) считаем анонимность
+    // включённой — так на бэкенде и заведено по умолчанию для новых юзеров.
+    const anonToggle = $('#toggle-leaderboard-anon');
+    if (anonToggle) anonToggle.checked = user.leaderboard_anonymous == null ? true : !!user.leaderboard_anonymous;
+
     updateBalanceUI(user.coins_balance);
 
     const { transactions } = await Api.getTransactions();
@@ -414,6 +419,27 @@ async function loadProfile() {
   } catch (e) {
     showToast(e.message, 'error');
   }
+}
+
+const anonToggleEl = $('#toggle-leaderboard-anon');
+if (anonToggleEl) {
+  anonToggleEl.addEventListener('change', async () => {
+    const anonymous = anonToggleEl.checked;
+    anonToggleEl.disabled = true;
+    try {
+      const { user } = await Api.setLeaderboardVisibility(anonymous);
+      if (state.profile) state.profile.user = user;
+      showToast(anonymous ? 'В топе игроков вы теперь анонимны' : 'В топе игроков теперь видно ваше имя', 'success');
+      // Если таблица лидеров уже загружалась, следующий заход должен
+      // подтянуть актуальное отображение.
+      state.leadersLoadedFor = null;
+    } catch (e) {
+      anonToggleEl.checked = !anonymous; // откатываем UI при ошибке запроса
+      showToast(e.message, 'error');
+    } finally {
+      anonToggleEl.disabled = false;
+    }
+  });
 }
 
 const TX_LABELS = {

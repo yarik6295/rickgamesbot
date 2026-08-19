@@ -45,7 +45,7 @@
      и пользователь продолжает видеть старое поведение, хотя на сервере уже
      лежат новые файлы. При каждом деплое с правками фронтенда — увеличивайте
      это число (APP_VERSION ниже и во всех тегах). -->
-<link rel="stylesheet" href="css/style.css?v=8" />
+<link rel="stylesheet" href="css/style.css?v=9" />
 </head>
 <body class="bg-bg text-white min-h-screen font-sans overflow-x-hidden">
 
@@ -453,6 +453,18 @@
     <div class="surface-card p-4 mt-4">
       <div class="flex items-center justify-between gap-3">
         <div>
+          <h4 class="font-bold">🕶 Анонимность в топе</h4>
+          <p class="text-white/40 text-xs mt-1">Если включено, в топе игроков вместо имени и фото видно «Аноним». По умолчанию включено.</p>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="toggle-leaderboard-anon" checked />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+    <div class="surface-card p-4 mt-4">
+      <div class="flex items-center justify-between gap-3">
+        <div>
           <h4 class="font-bold">🎟 Чеки</h4>
           <p class="text-white/40 text-xs mt-1">Создавай чеки со своего баланса или активируй код друга.</p>
         </div>
@@ -529,9 +541,9 @@
 <div id="toast" class="toast hidden"></div>
 
 <script src="js/telegram.js?v=8"></script>
-<script src="js/api.js?v=8"></script>
+<script src="js/api.js?v=9"></script>
 <script src="js/roulette.js?v=8"></script>
-<script src="js/app.js?v=8"></script>
+<script src="js/app.js?v=9"></script>
 <script src="js/games.js?v=5"></script>
 </body>
 </html>

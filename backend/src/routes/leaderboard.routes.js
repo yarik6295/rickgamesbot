@@ -20,6 +20,11 @@ const LIMIT = 50;
  * ВАЖНО: наружу отдаём ТОЛЬКО first_name и photo_url — никакого username/
  * telegram_id, ни на фронте, ни в ответе API (см. запрос пользователя —
  * юзернейм в таблице лидеров быть не должно, только имя и аватар).
+ *
+ * Игроки с leaderboard_anonymous=1 (по умолчанию у всех) отдаются наружу
+ * как "Аноним" без фото — их место и сумма ставок в рейтинге сохраняются,
+ * просто имя/аватар скрыты от остальных. Своя же строка (isYou) на фронте
+ * всё равно подписывается как "Вы" независимо от этого флага.
  */
 router.get('/', async (req, res) => {
     const period = req.query.period === 'week' ? 'week' : 'all';
@@ -28,7 +33,7 @@ router.get('/', async (req, res) => {
     const whereClause = period === 'week' ? `WHERE gr.created_at >= datetime('now', '-7 days')` : '';
 
     const rows = await db.all(`
-        SELECT u.id AS user_id, u.telegram_id, u.first_name, u.photo_url,
+        SELECT u.id AS user_id, u.telegram_id, u.first_name, u.photo_url, u.leaderboard_anonymous,
                SUM(gr.bet_coins) AS total_wagered
         FROM game_rounds gr
         JOIN users u ON u.id = gr.user_id
@@ -38,13 +43,17 @@ router.get('/', async (req, res) => {
         LIMIT ?
     `, [LIMIT]);
 
-    const leaders = rows.map((r, i) => ({
-        rank: i + 1,
-        firstName: r.first_name || 'Игрок',
-        photoUrl: r.photo_url || null,
-        totalWagered: Number(r.total_wagered) || 0,
-        isYou: telegramUser?.id != null && Number(r.telegram_id) === Number(telegramUser.id),
-    }));
+    const leaders = rows.map((r, i) => {
+        const anonymous = !!r.leaderboard_anonymous;
+        return {
+            rank: i + 1,
+            firstName: anonymous ? 'Аноним' : (r.first_name || 'Игрок'),
+            photoUrl: anonymous ? null : (r.photo_url || null),
+            anonymous,
+            totalWagered: Number(r.total_wagered) || 0,
+            isYou: telegramUser?.id != null && Number(r.telegram_id) === Number(telegramUser.id),
+        };
+    });
 
     // Если текущий игрок не попал в топ-LIMIT, отдельно считаем его личное
     // место/сумму — чтобы можно было показать "твоя позиция" даже вне топа.
@@ -71,6 +80,7 @@ router.get('/', async (req, res) => {
                 rank: (Number(better?.cnt) || 0) + 1,
                 firstName: user.first_name || 'Игрок',
                 photoUrl: user.photo_url || null,
+                anonymous: !!user.leaderboard_anonymous,
                 totalWagered,
                 isYou: true,
                 outsideTop: true,
