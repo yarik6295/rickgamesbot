@@ -37,6 +37,11 @@ function mainMenuKeyboard() {
     if (WEBAPP_URL) {
         rows.push([{ text: '🎮 Открыть Mini App', web_app: { url: WEBAPP_URL } }]);
     }
+    rows.push([
+        { text: '👤 Профиль', callback_data: 'menu:profile' },
+        { text: '🎟 Чеки', callback_data: 'menu:promos' },
+    ]);
+    rows.push([{ text: 'ℹ️ О проекте', callback_data: 'menu:about' }]);
     return { inline_keyboard: rows };
 }
 
