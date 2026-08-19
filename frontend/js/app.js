@@ -477,18 +477,49 @@ async function loadMyPromos() {
       list.innerHTML = '<p class="text-white/30 text-xs">Созданных чеков пока нет.</p>';
       return;
     }
-    promos.slice(0, 5).forEach((p) => {
+    promos.forEach((p) => {
       const row = document.createElement('div');
-      row.className = 'flex items-center justify-between bg-surface rounded-xl px-3 py-2 text-xs';
-      const stateText = p.status === 'exhausted' ? 'Использован' : `${p.used_uses}/${p.max_uses}`;
+      row.className = 'bg-surface rounded-xl px-3 py-2 text-xs';
+      const remaining = Math.max(0, Number(p.max_uses) - Number(p.used_uses));
+      const isActive = p.status === 'active';
+      const stateText = p.status === 'exhausted'
+        ? 'Полностью использован'
+        : p.status === 'cancelled'
+          ? 'Деактивирован'
+          : `Осталось ${remaining}`;
       row.innerHTML = `
-        <span class="font-mono font-bold text-white">${p.code}</span>
-        <span class="text-white/50">${p.amount_coins} ⭐ × ${stateText}</span>
+        <div class="flex items-center justify-between gap-2">
+          <span class="font-mono font-bold text-white break-all">${p.code}</span>
+          <span class="text-white/50 whitespace-nowrap">${p.amount_coins} ⭐ × ${p.max_uses}</span>
+        </div>
+        <div class="flex items-center justify-between gap-2 mt-1.5">
+          <span class="text-white/40">${stateText}</span>
+          ${isActive ? '<button class="promo-cancel-btn text-red-300 text-[11px] font-semibold px-2 py-1 rounded-lg bg-red-500/10" data-promo-id="' + p.id + '">Деактивировать</button>' : ''}
+        </div>
       `;
       list.appendChild(row);
     });
+
+    list.querySelectorAll('.promo-cancel-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const promoId = Number(btn.dataset.promoId);
+        if (!promoId) return;
+        if (!window.confirm('Деактивировать чек? Все неиспользованные ⭐ вернутся на баланс.')) return;
+        btn.disabled = true;
+        try {
+          const result = await Api.cancelPromo(promoId);
+          updateBalanceUI(result.newBalance);
+          await loadProfile();
+          TelegramBridge.haptic('success');
+          showToast(`Чек деактивирован. Возвращено ${result.refund} ⭐`);
+        } catch (e) {
+          btn.disabled = false;
+          showToast(e.message, 'error');
+        }
+      });
+    });
   } catch (e) {
-    list.innerHTML = '';
+    list.innerHTML = '<p class="text-white/30 text-xs">Не удалось загрузить чеки.</p>';
   }
 }
 

@@ -2,7 +2,7 @@ require('dotenv').config();
 const db = require('../db/database');
 const { getOrCreateUser } = require('../services/userService');
 const { callBotApi } = require('../services/telegramApi');
-const { createPromoCode, redeemPromoCode } = require('../services/promoService');
+const { createPromoCode, redeemPromoCode, cancelPromoCode, getMyPromos } = require('../services/promoService');
 
 // URL Mini App (то, что задано в @BotFather → Bot Settings → Menu Button / Web App).
 // Без него кнопка "Открыть Mini App" просто не показывается, чтобы не отправлять
@@ -69,27 +69,53 @@ async function profileText(telegramUser) {
 }
 
 
-function promoMenuKeyboard() {
-    return {
-        inline_keyboard: [
-            [
-                { text: '🎟 Активировать', callback_data: 'promo:redeem' },
-                { text: '➕ Создать', callback_data: 'promo:create' },
-            ],
-            [{ text: '⬅️ Назад в меню', callback_data: 'menu:home' }],
-        ],
-    };
-}
-
-function promoMenuText() {
-    return [
+async function promoMenuData(telegramUser) {
+    const promos = await getMyPromos(telegramUser);
+    const lines = [
         '🎟 *Чеки*',
         '',
         'Создавай чек со своего баланса и отправляй код другу.',
         'Или активируй чек, который прислал тебе другой игрок.',
         '',
         'При создании сумма резервируется из твоего баланса.',
-    ].join('\n');
+    ];
+
+    if (promos.length) {
+        lines.push('', '*Твои чеки:*');
+        promos.slice(0, 10).forEach((p) => {
+            const remaining = Math.max(0, Number(p.max_uses) - Number(p.used_uses));
+            const state = p.status === 'active'
+                ? `активен, осталось ${remaining}`
+                : p.status === 'exhausted'
+                    ? 'полностью использован'
+                    : 'деактивирован';
+            lines.push(`• \`${p.code}\` — ${p.amount_coins} ⭐ × ${p.max_uses} (${state})`);
+        });
+    } else {
+        lines.push('', 'Твоих созданных чеков пока нет.');
+    }
+
+    const keyboard = [
+        [
+            { text: '🎟 Активировать', callback_data: 'promo:redeem' },
+            { text: '➕ Создать', callback_data: 'promo:create' },
+        ],
+    ];
+
+    promos.filter((p) => p.status === 'active').slice(0, 10).forEach((p) => {
+        keyboard.push([{ text: `❌ Деактивировать ${p.code}`, callback_data: `promo:cancel:${p.id}` }]);
+    });
+
+    keyboard.push([{ text: '⬅️ Назад в меню', callback_data: 'menu:home' }]);
+    return { text: lines.join('\n'), keyboard: { inline_keyboard: keyboard } };
+}
+
+async function promoMenuText(telegramUser) {
+    return (await promoMenuData(telegramUser)).text;
+}
+
+async function promoMenuKeyboard(telegramUser) {
+    return (await promoMenuData(telegramUser)).keyboard;
 }
 
 const promoFlow = new Map();
@@ -104,9 +130,10 @@ async function handlePromoMessage(message) {
         if (flow.action === 'redeem') {
             const result = await redeemPromoCode(message.from, text);
             promoFlow.delete(chatId);
+            const promoMenu = await promoMenuData(message.from);
             await sendMessage(chatId,
                 `✅ *Чек активирован!*\n\nНачислено: +${result.amount} ⭐\nНовый баланс: ${result.newBalance} ⭐`,
-                mainMenuKeyboard());
+                promoMenu.keyboard);
             return true;
         }
         if (flow.action === 'create' && flow.step === 'amount') {
@@ -245,7 +272,8 @@ async function handleMessage(message) {
     }
 
     if (text === '/checks' || text === '/promo') {
-        await sendMessage(chatId, promoMenuText(), promoMenuKeyboard());
+        const promoMenu = await promoMenuData(message.from);
+        await sendMessage(chatId, promoMenu.text, promoMenu.keyboard);
     }
 }
 
@@ -261,6 +289,18 @@ async function handleCallbackQuery(callbackQuery) {
     }
 
     try {
+        if (data === 'promo:cancel:' || data.startsWith('promo:cancel:')) {
+            const promoId = Number(data.slice('promo:cancel:'.length));
+            const result = await cancelPromoCode(telegramUser, promoId);
+            const promoMenu = await promoMenuData(telegramUser);
+            await editMessage(chatId, messageId, promoMenu.text, promoMenu.keyboard);
+            await callBotApi('answerCallbackQuery', {
+                callback_query_id: callbackQuery.id,
+                text: `Возвращено ${result.refund} ⭐`,
+            });
+            return;
+        }
+
         if (data === 'promo:redeem') {
             promoFlow.set(chatId, { action: 'redeem' });
             await editMessage(chatId, messageId,
@@ -291,8 +331,11 @@ async function handleCallbackQuery(callbackQuery) {
                 text = await profileText(telegramUser);
                 break;
             case 'menu:promos':
-                text = promoMenuText();
-                break;
+                {
+                    const promoMenu = await promoMenuData(telegramUser);
+                    text = promoMenu.text;
+                    break;
+                }
             case 'menu:history':
                 text = await historyText(telegramUser);
                 break;
@@ -306,7 +349,7 @@ async function handleCallbackQuery(callbackQuery) {
                 text = welcomeText(telegramUser?.first_name);
         }
 
-        const keyboard = data === 'menu:promos' ? promoMenuKeyboard() : backKeyboard();
+        const keyboard = data === 'menu:promos' ? (await promoMenuData(telegramUser)).keyboard : backKeyboard();
         await editMessage(chatId, messageId, text, keyboard);
         await callBotApi('answerCallbackQuery', { callback_query_id: callbackQuery.id });
     } catch (err) {

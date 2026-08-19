@@ -39,6 +39,7 @@ const Api = {
   createPromo: (amount, maxUses) => apiRequest('/promos/create', { method: 'POST', body: { amount, maxUses } }),
   redeemPromo: (code) => apiRequest('/promos/redeem', { method: 'POST', body: { code } }),
   getMyPromos: () => apiRequest('/promos/mine'),
+  cancelPromo: (promoId) => apiRequest('/promos/cancel', { method: 'POST', body: { promoId } }),
   createTopupInvoice: (amount) => apiRequest('/user/topup/invoice', { method: 'POST', body: { amount } }),
   getTopupStatus: (paymentId) => apiRequest(`/user/topup/status/${encodeURIComponent(paymentId)}`),
 
