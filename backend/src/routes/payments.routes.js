@@ -14,6 +14,7 @@ const bot = require('../bot/bot');
 // двух UPDATE перезаписывал результат другого. credit() — то же атомарное
 // coins_balance = coins_balance + ?, что и в играх/кейсах/промокодах.
 const { credit } = require('../controllers/gamesController');
+const { rewardReferralForTopup } = require('../services/referralService');
 require('dotenv').config();
 
 const MAX_TOPUP_AMOUNT = Number(process.env.MAX_TOPUP_AMOUNT || 1000000);
@@ -104,6 +105,7 @@ router.post('/telegram/webhook', async (req, res) => {
                 // credit() сам пишет строку в transactions — отдельный
                 // INSERT ниже больше не нужен.
                 await credit(user.id, Number(payment.stars_amount), 'stars_topup', payment.id, tx);
+                await rewardReferralForTopup(payment, tx);
 
                 invalidateUserCache(user.id);
             });

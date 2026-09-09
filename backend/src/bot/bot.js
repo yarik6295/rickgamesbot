@@ -3,11 +3,18 @@ const db = require('../db/database');
 const { getOrCreateUser, setLeaderboardAnonymous } = require('../services/userService');
 const { callBotApi } = require('../services/telegramApi');
 const { createPromoCode, redeemPromoCode, cancelPromoCode, getMyPromos } = require('../services/promoService');
+const {
+    REFERRAL_SIGNUP_BONUS,
+    REFERRAL_TOPUP_PERCENT,
+    registerReferral,
+    getReferralStats,
+} = require('../services/referralService');
 
 // URL Mini App (то, что задано в @BotFather → Bot Settings → Menu Button / Web App).
 // Без него кнопка "Открыть Mini App" просто не показывается, чтобы не отправлять
 // невалидную web_app-кнопку в Telegram.
 const WEBAPP_URL = process.env.WEBAPP_URL || '';
+const BOT_USERNAME = String(process.env.BOT_USERNAME || '').replace(/^@/, '');
 
 // =========================================================
 // Клавиатуры
@@ -25,7 +32,8 @@ function replyKeyboard() {
     return {
         keyboard: [
             [{ text: KB_PROFILE }, { text: KB_PLAY }],
-            [{ text: KB_CHECKS }, { text: KB_ABOUT }],
+            [{ text: KB_CHECKS }, { text: '👥 Рефералы' }],
+            [{ text: KB_ABOUT }],
         ],
         resize_keyboard: true,
         is_persistent: true,
@@ -41,7 +49,10 @@ function mainMenuKeyboard() {
         { text: '👤 Профиль', callback_data: 'menu:profile' },
         { text: '🎟 Чеки', callback_data: 'menu:promos' },
     ]);
-    rows.push([{ text: '⭐ Играть', callback_data: 'menu:play' }]);
+    rows.push([
+        { text: '👥 Рефералы', callback_data: 'menu:referral' },
+        { text: '⭐ Играть', callback_data: 'menu:play' },
+    ]);
     return { inline_keyboard: rows };
 }
 
@@ -161,6 +172,25 @@ async function promoMenuKeyboard(telegramUser) {
     return (await promoMenuData(telegramUser)).keyboard;
 }
 
+async function referralText(telegramUser) {
+    const stats = await getReferralStats(telegramUser);
+    const lines = [
+        '👥 *Реферальная программа*',
+        '',
+        `За каждого друга: +${REFERRAL_SIGNUP_BONUS} ⭐`,
+        `С каждого его пополнения: ${REFERRAL_TOPUP_PERCENT}% ⭐`,
+        '',
+        `Приглашено друзей: ${stats.invitedCount}`,
+        `Получено комиссии: ${stats.commissionEarned} ⭐`,
+    ];
+    if (BOT_USERNAME) {
+        lines.push('', '*Твоя ссылка:*', `https://t.me/${BOT_USERNAME}?start=ref_${stats.user.telegram_id}`);
+    } else {
+        lines.push('', 'Администратору нужно указать BOT_USERNAME в настройках сервера, чтобы показать ссылку.');
+    }
+    return lines.join('\n');
+}
+
 const promoFlow = new Map();
 
 async function handlePromoMessage(message) {
@@ -219,6 +249,8 @@ const TX_TYPE_LABELS = {
     game_win: 'Выигрыш в игре',
     self_topup: 'Пополнение',
     stars_topup: 'Пополнение Stars',
+    referral_bonus: 'Бонус за приглашение',
+    referral_commission: 'Реферальная комиссия',
 };
 
 async function historyText(telegramUser) {
@@ -339,6 +371,11 @@ async function handleMessage(message) {
     if (await handlePromoMessage(message)) return;
 
     if (text === '/start' || text.startsWith('/start ')) {
+        const startArgument = text.slice('/start'.length).trim();
+        const match = /^ref_(\d+)$/.exec(startArgument);
+        if (match && message.from) {
+            await registerReferral(message.from, match[1]);
+        }
         await sendMainMenu(chatId, message.from?.first_name);
         return;
     }
@@ -350,6 +387,11 @@ async function handleMessage(message) {
 
     if (text === '/checks' || text === '/promo') {
         await sendChecks(chatId, message.from);
+        return;
+    }
+
+    if (text === '/ref' || text === '👥 Рефералы') {
+        await sendMessage(chatId, await referralText(message.from), backKeyboard());
         return;
     }
 
@@ -450,6 +492,9 @@ async function handleCallbackQuery(callbackQuery) {
             case 'menu:leaderboard':
                 text = await leaderboardText(telegramUser);
                 break;
+            case 'menu:referral':
+                text = await referralText(telegramUser);
+                break;
             case 'menu:about':
                 text = ABOUT_TEXT;
                 break;
@@ -465,7 +510,7 @@ async function handleCallbackQuery(callbackQuery) {
             keyboard = (await promoMenuData(telegramUser)).keyboard;
         } else if (data === 'menu:profile') {
             keyboard = (await profileData(telegramUser)).keyboard;
-        } else if (data === 'menu:history' || data === 'menu:leaderboard') {
+        } else if (data === 'menu:history' || data === 'menu:leaderboard' || data === 'menu:referral') {
             keyboard = backToProfileKeyboard();
         } else {
             keyboard = backKeyboard();
@@ -501,6 +546,7 @@ async function setBotCommands() {
             { command: 'menu', description: 'Открыть меню' },
             { command: 'checks', description: 'Чеки' },
             { command: 'promo', description: 'Чеки (алиас)' },
+            { command: 'ref', description: 'Пригласить друга' },
         ],
     });
 }

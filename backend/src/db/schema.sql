@@ -56,7 +56,8 @@ CREATE TABLE IF NOT EXISTS transactions (
     type            TEXT NOT NULL CHECK(type IN (
                         'daily_bonus','case_open','sell_item','admin_adjust',
                         'game_bet','game_win','self_topup','stars_topup',
-                        'promo_create','promo_redeem','promo_cancel'
+                        'promo_create','promo_redeem','promo_cancel',
+                        'referral_bonus','referral_commission'
                     )),
     amount_coins    INTEGER NOT NULL,                 -- +начисление / -списание
     balance_after   INTEGER NOT NULL,
@@ -127,6 +128,29 @@ CREATE TABLE IF NOT EXISTS star_payments (
 
 CREATE INDEX IF NOT EXISTS idx_star_payments_user ON star_payments(user_id);
 CREATE INDEX IF NOT EXISTS idx_star_payments_payload ON star_payments(payload);
+
+-- Реферальная программа. Связь создаётся ровно один раз, только когда
+-- приглашённый впервые запускает бота по deep-link. Комиссии привязаны к
+-- платежу, поэтому повторная доставка Telegram webhook не платит дважды.
+CREATE TABLE IF NOT EXISTS referrals (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    referrer_user_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    referred_user_id  INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+    created_at        DATETIME DEFAULT CURRENT_TIMESTAMP,
+    CHECK(referrer_user_id <> referred_user_id)
+);
+
+CREATE TABLE IF NOT EXISTS referral_commissions (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    payment_id        INTEGER NOT NULL UNIQUE REFERENCES star_payments(id) ON DELETE CASCADE,
+    referrer_user_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    referred_user_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    amount_coins      INTEGER NOT NULL CHECK(amount_coins > 0),
+    created_at        DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_referrals_referrer ON referrals(referrer_user_id);
+CREATE INDEX IF NOT EXISTS idx_referral_commissions_referrer ON referral_commissions(referrer_user_id);
 
 
 -- Промокоды/чеки внутреннего баланса.

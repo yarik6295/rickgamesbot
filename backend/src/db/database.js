@@ -15,9 +15,12 @@ if (!url) {
 
 const client = createClient({ url, authToken });
 
-// Значения type, которые используют чеки. Старые базы были созданы до
-// появления этой функции, поэтому их CHECK в transactions их не знает.
-const PROMO_TRANSACTION_TYPES = ['promo_create', 'promo_redeem', 'promo_cancel'];
+// Все значения, добавленные после первых развёрнутых баз. Старый CHECK в
+// transactions нужно пересоздать, иначе новые операции упадут до записи.
+const EXTENDED_TRANSACTION_TYPES = [
+    'promo_create', 'promo_redeem', 'promo_cancel',
+    'referral_bonus', 'referral_commission',
+];
 
 /**
  * Тонкие обёртки над клиентом Turso (@libsql/client), которые повторяют
@@ -83,7 +86,7 @@ async function migrateTransactionsConstraint() {
     `);
     const definition = String(table?.sql || '');
 
-    if (!definition || PROMO_TRANSACTION_TYPES.every((type) => definition.includes(`'${type}'`))) {
+    if (!definition || EXTENDED_TRANSACTION_TYPES.every((type) => definition.includes(`'${type}'`))) {
         return;
     }
 
@@ -95,7 +98,7 @@ async function migrateTransactionsConstraint() {
             WHERE type = 'table' AND name = 'transactions'
         `);
         const currentDefinition = String(current?.sql || '');
-        if (PROMO_TRANSACTION_TYPES.every((type) => currentDefinition.includes(`'${type}'`))) {
+        if (EXTENDED_TRANSACTION_TYPES.every((type) => currentDefinition.includes(`'${type}'`))) {
             return;
         }
 
@@ -106,7 +109,8 @@ async function migrateTransactionsConstraint() {
                 type            TEXT NOT NULL CHECK(type IN (
                                     'daily_bonus','case_open','sell_item','admin_adjust',
                                     'game_bet','game_win','self_topup','stars_topup',
-                                    'promo_create','promo_redeem','promo_cancel'
+                                    'promo_create','promo_redeem','promo_cancel',
+                                    'referral_bonus','referral_commission'
                                 )),
                 amount_coins    INTEGER NOT NULL,
                 balance_after   INTEGER NOT NULL,
