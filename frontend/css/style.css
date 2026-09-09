@@ -458,13 +458,35 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 /* ---------- Разделы профиля и копилка ---------- */
 .tab-header { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
 .tab-header .section-title { margin: 0; }
-.profile-actions-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.profile-section-link { text-align: left; padding: 14px; border-radius: 16px; border: 1px solid rgba(255,255,255,.09); background: rgba(255,255,255,.045); transition: transform .15s ease, background .15s ease; }
-.profile-section-link:active { transform: scale(.97); background: rgba(176,38,255,.15); }
-.profile-section-link span { display: block; font-size: 1.45rem; margin-bottom: 6px; }
-.profile-section-link strong, .profile-section-link small { display: block; }
-.profile-section-link strong { font-size: .86rem; }
-.profile-section-link small { color: rgba(255,255,255,.42); font-size: .64rem; margin-top: 3px; line-height: 1.2; }
+.profile-identity-card {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(0,246,255,.16);
+  background: radial-gradient(circle at 50% -25%, rgba(0,246,255,.16), transparent 60%), rgba(18,18,31,.88);
+}
+.profile-identity-card::after { content: ''; position: absolute; inset: auto 18% 0; height: 1px; background: linear-gradient(90deg, transparent, rgba(0,246,255,.55), transparent); }
+.profile-actions-grid { display: flex; flex-direction: column; gap: 10px; }
+.profile-section-link {
+  width: 100%; display: flex; align-items: center; gap: 12px; text-align: left;
+  padding: 12px; border-radius: 17px; border: 1px solid rgba(255,255,255,.09);
+  background: linear-gradient(100deg, rgba(255,255,255,.07), rgba(255,255,255,.025));
+  box-shadow: 0 8px 20px rgba(0,0,0,.15); transition: transform .16s ease, border-color .16s ease, background .16s ease;
+}
+.profile-section-link:active { transform: scale(.982); }
+.profile-section-link:hover { border-color: rgba(255,255,255,.19); background: linear-gradient(100deg, rgba(255,255,255,.1), rgba(255,255,255,.04)); }
+.profile-action-icon {
+  display: flex; align-items: center; justify-content: center; flex: 0 0 42px; height: 42px;
+  border-radius: 13px; font-size: 1.35rem; background: rgba(255,255,255,.075); border: 1px solid rgba(255,255,255,.1);
+}
+.profile-action-copy { min-width: 0; flex: 1; }
+.profile-action-copy strong, .profile-action-copy small { display: block; }
+.profile-action-copy strong { font-size: .9rem; letter-spacing: -.01em; }
+.profile-action-copy small { color: rgba(255,255,255,.45); font-size: .68rem; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.profile-action-arrow { font-size: 1.75rem; line-height: 1; color: rgba(255,255,255,.32); padding: 0 3px 2px 0; }
+.action-piggy .profile-action-icon { background: linear-gradient(135deg, rgba(255,211,61,.28), rgba(255,142,39,.12)); box-shadow: inset 0 0 16px rgba(255,211,61,.1); }
+.action-promos .profile-action-icon { background: linear-gradient(135deg, rgba(255,85,145,.25), rgba(176,38,255,.12)); }
+.action-referrals .profile-action-icon { background: linear-gradient(135deg, rgba(0,246,255,.22), rgba(55,120,255,.11)); }
+.action-history .profile-action-icon { background: linear-gradient(135deg, rgba(176,38,255,.25), rgba(120,75,255,.1)); }
 .piggy-bank-card { border-color: rgba(255,216,61,.32); background: radial-gradient(circle at 50% 0%, rgba(255,216,61,.13), transparent 48%), rgba(18,18,31,.88); }
 .piggy-bank-balance { font-size: 2rem; color: #ffd83d; font-weight: 800; margin-top: 3px; text-shadow: 0 0 14px rgba(255,216,61,.28); }
 .piggy-progress { overflow: hidden; height: 8px; border-radius: 999px; background: rgba(255,255,255,.08); margin-top: 18px; }

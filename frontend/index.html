@@ -440,7 +440,7 @@
   <!-- ============ ЭКРАН: ПРОФИЛЬ ============ -->
   <section id="tab-profile" class="tab-panel hidden">
     <h2 class="section-title">Профиль</h2>
-    <div class="surface-card p-5 text-center">
+    <div class="surface-card p-5 text-center profile-identity-card">
       <img id="profile-avatar" class="w-20 h-20 rounded-full mx-auto mb-3 border-2 border-neon shadow-neon object-cover" src="" alt="" />
       <h3 id="profile-name" class="font-bold text-lg"></h3>
       <p id="profile-username" class="text-white/40 text-sm mb-4"></p>
@@ -454,7 +454,6 @@
       <div class="flex items-center justify-between gap-3">
         <div>
           <h4 class="font-bold">🕶 Анонимность в топе</h4>
-          <p class="text-white/40 text-xs mt-1">Если включено, в топе игроков вместо имени и фото видно «Аноним». По умолчанию включено.</p>
         </div>
         <label class="toggle-switch">
           <input type="checkbox" id="toggle-leaderboard-anon" checked />
@@ -463,10 +462,10 @@
       </div>
     </div>
     <div class="profile-actions-grid mt-4">
-      <button class="profile-section-link" data-tab="piggybank"><span>🐷</span><strong>Копилка</strong><small>5% с каждой ставки</small></button>
-      <button class="profile-section-link" data-tab="promos"><span>🎟</span><strong>Чеки</strong><small>Создать или активировать</small></button>
-      <button class="profile-section-link" data-tab="referrals"><span>👥</span><strong>Рефералы</strong><small>10 ⭐ + 20% пополнений</small></button>
-      <button class="profile-section-link" data-tab="history"><span>📜</span><strong>История</strong><small>Все операции</small></button>
+      <button class="profile-section-link action-piggy" data-tab="piggybank"><span class="profile-action-icon">🐷</span><span class="profile-action-copy"><strong>Копилка</strong><small>5% с каждой игровой ставки</small></span><span class="profile-action-arrow">›</span></button>
+      <button class="profile-section-link action-promos" data-tab="promos"><span class="profile-action-icon">🎟</span><span class="profile-action-copy"><strong>Чеки</strong><small>Создать или активировать код</small></span><span class="profile-action-arrow">›</span></button>
+      <button class="profile-section-link action-referrals" data-tab="referrals"><span class="profile-action-icon">👥</span><span class="profile-action-copy"><strong>Рефералы</strong><small>10 ⭐ за друга + 20% пополнений</small></span><span class="profile-action-arrow">›</span></button>
+      <button class="profile-section-link action-history" data-tab="history"><span class="profile-action-icon">📜</span><span class="profile-action-copy"><strong>История операций</strong><small>Баланс, ставки и начисления</small></span><span class="profile-action-arrow">›</span></button>
     </div>
   </section>
 
