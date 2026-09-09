@@ -435,10 +435,45 @@ async function loadProfile() {
     const { transactions } = await Api.getTransactions();
     renderTransactions(transactions);
     await loadMyPromos();
+    await loadReferrals();
   } catch (e) {
     showToast(e.message, 'error');
   }
 }
+
+let referralLink = null;
+
+async function loadReferrals() {
+  const copyButton = $('#btn-copy-referral');
+  const hint = $('#referral-link-hint');
+  try {
+    const data = await Api.getReferrals();
+    referralLink = data.referralLink;
+    $('#referral-invited-count').textContent = data.invitedCount;
+    $('#referral-commission-earned').textContent = `${data.commissionEarned} ⭐`;
+    copyButton.disabled = !referralLink;
+    hint.textContent = referralLink
+      ? 'Отправь ссылку другу — бонус начислится после его первого запуска.'
+      : 'Укажи BOT_USERNAME в настройках сервера, чтобы создать ссылку.';
+  } catch (e) {
+    referralLink = null;
+    copyButton.disabled = true;
+    hint.textContent = 'Не удалось загрузить реферальную программу.';
+  }
+}
+
+$('#btn-copy-referral')?.addEventListener('click', async () => {
+  if (!referralLink) return;
+  try {
+    await navigator.clipboard.writeText(referralLink);
+    TelegramBridge.haptic('success');
+    showToast('Ссылка скопирована');
+  } catch (e) {
+    // В части Telegram WebView Clipboard API закрыт — prompt позволяет
+    // скопировать ссылку вручную и не теряет её.
+    window.prompt('Скопируй свою реферальную ссылку:', referralLink);
+  }
+});
 
 const anonToggleEl = $('#toggle-leaderboard-anon');
 if (anonToggleEl) {
@@ -469,6 +504,8 @@ const TX_LABELS = {
   game_win: '🏆 Выигрыш в игре',
   self_topup: '⭐ Пополнение баланса',
   stars_topup: '⭐ Пополнение через Telegram Stars',
+  referral_bonus: '👥 Бонус за приглашение',
+  referral_commission: '👥 Реферальная комиссия',
 };
 
 function renderTransactions(transactions) {

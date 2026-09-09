@@ -440,6 +440,21 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .stat-value { font-weight: 800; font-size: 1.05rem; color: #00f6ff; }
 .stat-label { font-size: .65rem; color: rgba(255,255,255,.4); }
 
+/* ---------- Реферальная карточка ---------- */
+.referral-card {
+  border-color: rgba(176,38,255,.28);
+  background: radial-gradient(circle at 100% 0%, rgba(176,38,255,.16), transparent 46%), rgba(18,18,31,.88);
+}
+.referral-icon { font-size: 1.55rem; filter: drop-shadow(0 0 9px rgba(255,210,74,.45)); }
+.referral-stat {
+  padding: 9px 6px;
+  border-radius: 12px;
+  background: rgba(255,255,255,.045);
+  border: 1px solid rgba(255,255,255,.07);
+}
+.referral-stat span { display: block; color: #00f6ff; font-weight: 800; font-size: 1rem; }
+.referral-stat small { color: rgba(255,255,255,.4); font-size: .65rem; }
+
 /* ---------- Модалка пополнения ---------- */
 .modal-overlay {
   position: fixed; inset: 0; z-index: 50;

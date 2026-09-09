@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../db/database');
 const telegramAuth = require('../middleware/telegramAuth');
 const { getOrCreateUser, invalidateUserCache, setLeaderboardAnonymous } = require('../services/userService');
+const { getReferralStats } = require('../services/referralService');
 require('dotenv').config();
 
 router.use(telegramAuth);
@@ -29,6 +30,26 @@ router.post('/leaderboard-visibility', async (req, res) => {
     await setLeaderboardAnonymous(user.id, anonymous);
     const updated = await getOrCreateUser(req.telegramUser);
     res.json({ user: updated });
+});
+
+/**
+ * GET /api/user/referrals
+ * Статистика и персональная deep-link ссылка для Mini App. Имя бота берётся
+ * только из серверной конфигурации, а Telegram ID — из проверенного профиля.
+ */
+router.get('/referrals', async (req, res) => {
+    const stats = await getReferralStats(req.telegramUser);
+    const botUsername = String(process.env.BOT_USERNAME || '').replace(/^@/, '');
+    const referralLink = botUsername
+        ? `https://t.me/${botUsername}?start=ref_${stats.user.telegram_id}`
+        : null;
+    res.json({
+        invitedCount: stats.invitedCount,
+        commissionEarned: stats.commissionEarned,
+        signupBonus: 10,
+        topupPercent: 20,
+        referralLink,
+    });
 });
 
 /**

@@ -476,6 +476,21 @@
       <div class="text-white/30 text-[11px] mt-3">Активные чеки можно деактивировать — неиспользованный остаток вернётся на баланс.</div>
       <div id="promo-my-list" class="mt-3 flex flex-col gap-1.5"></div>
     </div>
+    <div class="surface-card p-4 mt-4 referral-card">
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <h4 class="font-bold">👥 Пригласи друзей</h4>
+          <p class="text-white/40 text-xs mt-1">Получи 10 ⭐ за друга и 20% от каждого его пополнения.</p>
+        </div>
+        <span class="referral-icon">🎁</span>
+      </div>
+      <div class="grid grid-cols-2 gap-2 mt-3 text-center">
+        <div class="referral-stat"><span id="referral-invited-count">0</span><small>Приглашено</small></div>
+        <div class="referral-stat"><span id="referral-commission-earned">0 ⭐</span><small>Комиссия</small></div>
+      </div>
+      <button id="btn-copy-referral" class="btn-primary w-full py-2.5 text-sm mt-3">Скопировать ссылку</button>
+      <p id="referral-link-hint" class="text-white/30 text-[11px] mt-2 text-center"></p>
+    </div>
     <h4 class="font-semibold mt-5 mb-2 text-white/70 text-sm">История транзакций</h4>
     <div id="tx-list" class="flex flex-col gap-1.5"></div>
   </section>
