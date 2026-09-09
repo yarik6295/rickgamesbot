@@ -15,6 +15,10 @@ if (!url) {
 
 const client = createClient({ url, authToken });
 
+// Значения type, которые используют чеки. Старые базы были созданы до
+// появления этой функции, поэтому их CHECK в transactions их не знает.
+const PROMO_TRANSACTION_TYPES = ['promo_create', 'promo_redeem', 'promo_cancel'];
+
 /**
  * Тонкие обёртки над клиентом Turso (@libsql/client), которые повторяют
  * интерфейс, похожий на better-sqlite3 (get/all/run), но асинхронно —
@@ -68,13 +72,70 @@ async function transaction(fn) {
 }
 
 /**
+ * SQLite не умеет расширять CHECK через ALTER TABLE. Если база была создана
+ * до чеков, пересоздаём только таблицу журнала: все существующие строки,
+ * идентификаторы и даты копируются без изменений.
+ */
+async function migrateTransactionsConstraint() {
+    const table = await get(`
+        SELECT sql FROM sqlite_master
+        WHERE type = 'table' AND name = 'transactions'
+    `);
+    const definition = String(table?.sql || '');
+
+    if (!definition || PROMO_TRANSACTION_TYPES.every((type) => definition.includes(`'${type}'`))) {
+        return;
+    }
+
+    await transaction(async (tx) => {
+        // Повторяем проверку внутри write-транзакции: второй экземпляр
+        // приложения мог применить миграцию, пока первый ждал блокировку.
+        const current = await tx.get(`
+            SELECT sql FROM sqlite_master
+            WHERE type = 'table' AND name = 'transactions'
+        `);
+        const currentDefinition = String(current?.sql || '');
+        if (PROMO_TRANSACTION_TYPES.every((type) => currentDefinition.includes(`'${type}'`))) {
+            return;
+        }
+
+        await tx.run(`
+            CREATE TABLE transactions_migrated (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                type            TEXT NOT NULL CHECK(type IN (
+                                    'daily_bonus','case_open','sell_item','admin_adjust',
+                                    'game_bet','game_win','self_topup','stars_topup',
+                                    'promo_create','promo_redeem','promo_cancel'
+                                )),
+                amount_coins    INTEGER NOT NULL,
+                balance_after   INTEGER NOT NULL,
+                reference_id    INTEGER,
+                created_at      DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        await tx.run(`
+            INSERT INTO transactions_migrated
+                (id, user_id, type, amount_coins, balance_after, reference_id, created_at)
+            SELECT id, user_id, type, amount_coins, balance_after, reference_id, created_at
+            FROM transactions
+        `);
+        await tx.run(`DROP TABLE transactions`);
+        await tx.run(`ALTER TABLE transactions_migrated RENAME TO transactions`);
+        await tx.run(`CREATE INDEX IF NOT EXISTS idx_transactions_user ON transactions(user_id)`);
+    });
+}
+
+/**
  * Применяет схему при старте. Раньше здесь были ещё и ALTER-миграции для
  * баз, созданных до определённых изменений схемы (self_topup, nullable FK,
  * last_free_case_at, удаление "подарков"). При переезде на Turso база
  * создаётся с нуля, поэтому все эти миграции не нужны — CREATE TABLE
  * IF NOT EXISTS в schema.sql сразу создаёт актуальную схему.
  *
- * Исключение — leaderboard_anonymous: это ALTER на уже существующую
+ * Исключения — leaderboard_anonymous и CHECK в transactions: это миграции
+ * для уже существующих таблиц, CREATE TABLE IF NOT EXISTS их не меняет.
+ * leaderboard_anonymous — это ALTER на уже существующую
  * таблицу users, CREATE TABLE IF NOT EXISTS его не добавит на базах,
  * созданных до этого поля. Оборачиваем в try/catch — на свежих базах
  * колонка уже есть из schema.sql, и ALTER просто упадёт с "duplicate
@@ -88,6 +149,7 @@ async function init() {
     } catch (err) {
         // Колонка уже существует — ожидаемо на новых базах и при повторном запуске.
     }
+    await migrateTransactionsConstraint();
 }
 
 module.exports = { get, all, run, transaction, init };

@@ -134,8 +134,6 @@ async function redeemPromoCode(telegramUser, rawCode) {
             WHERE id = ? AND status = 'active'
         `, [nextUsed, nextStatus, promo.id]);
 
-        // Не пишем promo_* в transactions: у старых Turso-баз CHECK-ограничение
-        // могло быть создано без этих двух значений.
         invalidateUserCache(user.id);
 
         return {

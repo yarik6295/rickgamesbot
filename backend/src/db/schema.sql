@@ -49,13 +49,8 @@ CREATE TABLE IF NOT EXISTS case_items (
 CREATE TABLE IF NOT EXISTS transactions (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    -- 'promo_cancel' добавлен вместе с фиксом гонки в promoService.js
-    -- (см. комментарий там): отмена чека теперь тоже проходит через
-    -- атомарный credit(), который всегда пишет строку в этот журнал.
-    -- ВАЖНО: CREATE TABLE IF NOT EXISTS не изменит CHECK на уже
-    -- существующей удалённой (Turso) базе — для баз, созданных до этого
-    -- фикса, нужна ручная миграция (пересоздать constraint/таблицу),
-    -- иначе первая же отмена чека упадёт с ошибкой CHECK.
+    -- Операции с чеками пишутся как promo_*. Для уже существующих баз
+    -- database.js автоматически переносит журнал в таблицу с этим CHECK.
     -- daily_bonus оставлен только для совместимости с историческими
     -- строками уже развёрнутых баз: новой фичи/роута ежедневного бонуса нет.
     type            TEXT NOT NULL CHECK(type IN (
