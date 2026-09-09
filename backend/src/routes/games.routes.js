@@ -42,6 +42,8 @@ router.get('/crash/state', games.crashState);
 router.post('/crash/bet', singleActionLimiter, games.crashBet);
 router.post('/crash/cashout', singleActionLimiter, games.crashCashout);
 
+router.get('/fairness/:gameType', games.fairnessCommit);
+
 router.post('/mines/start', singleActionLimiter, games.minesStart);
 router.get('/mines/status', games.minesStatus);
 router.post('/mines/reveal', rapidActionLimiter, games.minesReveal);

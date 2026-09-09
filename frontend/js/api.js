@@ -32,7 +32,8 @@ async function apiRequest(path, { method = 'GET', body } = {}) {
 const Api = {
   getCases: () => apiRequest('/cases'),
   getCaseDetails: (slug) => apiRequest(`/cases/${slug}`),
-  openCase: (slug) => apiRequest(`/cases/${slug}/open`, { method: 'POST' }),
+  caseFairnessCommit: (slug) => apiRequest(`/cases/fairness/${encodeURIComponent(slug)}`),
+  openCase: (slug, commitmentId) => apiRequest(`/cases/${slug}/open`, { method: 'POST', body: { commitmentId } }),
 
   getProfile: () => apiRequest('/user/me'),
   getTransactions: () => apiRequest('/user/transactions'),
@@ -48,27 +49,28 @@ const Api = {
   crashState: () => apiRequest('/games/crash/state'),
   crashBet: (bet) => apiRequest('/games/crash/bet', { method: 'POST', body: { bet } }),
   crashCashout: (multiplier) => apiRequest('/games/crash/cashout', { method: 'POST', body: { multiplier } }),
+  fairnessCommit: (gameType) => apiRequest(`/games/fairness/${encodeURIComponent(gameType)}`),
 
   // ---- Mines ----
-  minesStart: (bet, mineCount) => apiRequest('/games/mines/start', { method: 'POST', body: { bet, mineCount } }),
+  minesStart: (bet, mineCount, commitmentId) => apiRequest('/games/mines/start', { method: 'POST', body: { bet, mineCount, commitmentId } }),
   minesStatus: () => apiRequest('/games/mines/status'),
   minesReveal: (tile) => apiRequest('/games/mines/reveal', { method: 'POST', body: { tile } }),
   minesCashout: () => apiRequest('/games/mines/cashout', { method: 'POST' }),
 
   // ---- Plinko ----
-  plinkoPlay: (bet, risk) => apiRequest('/games/plinko/play', { method: 'POST', body: { bet, risk } }),
+  plinkoPlay: (bet, risk, commitmentId) => apiRequest('/games/plinko/play', { method: 'POST', body: { bet, risk, commitmentId } }),
 
   // ---- Towers ----
-  towersStart: (bet) => apiRequest('/games/towers/start', { method: 'POST', body: { bet } }),
+  towersStart: (bet, commitmentId) => apiRequest('/games/towers/start', { method: 'POST', body: { bet, commitmentId } }),
   towersStatus: () => apiRequest('/games/towers/status'),
   towersPick: (tile) => apiRequest('/games/towers/pick', { method: 'POST', body: { tile } }),
   towersCashout: () => apiRequest('/games/towers/cashout', { method: 'POST' }),
 
   // ---- Upgrade ----
-  upgradePlay: (bet, chance) => apiRequest('/games/upgrade/play', { method: 'POST', body: { bet, chance } }),
+  upgradePlay: (bet, chance, commitmentId) => apiRequest('/games/upgrade/play', { method: 'POST', body: { bet, chance, commitmentId } }),
 
   // ---- Wheel ----
-  wheelPlay: (bet) => apiRequest('/games/wheel/play', { method: 'POST', body: { bet } }),
+  wheelPlay: (bet, commitmentId) => apiRequest('/games/wheel/play', { method: 'POST', body: { bet, commitmentId } }),
 
   // ---- Leaderboard ----
   getLeaderboard: (period) => apiRequest(`/leaderboard?period=${period === 'week' ? 'week' : 'all'}`),

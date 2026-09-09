@@ -532,7 +532,8 @@
       const startBtn = $('#btn-mines-start');
       startBtn.disabled = true;
       try {
-        const res = await Api.minesStart(bet, mineCount);
+        const fairness = await Api.fairnessCommit('mines');
+        const res = await Api.minesStart(bet, mineCount, fairness.commitmentId);
         window.updateBalanceUI(res.newBalance);
         this.active = true;
         this.revealed = [];
@@ -789,7 +790,8 @@
       const startBtn = $('#btn-towers-start');
       startBtn.disabled = true;
       try {
-        const res = await Api.towersStart(bet);
+        const fairness = await Api.fairnessCommit('towers');
+        const res = await Api.towersStart(bet, fairness.commitmentId);
         window.updateBalanceUI(res.newBalance);
         this.active = true;
         this.currentRow = 0;
@@ -958,7 +960,8 @@
       playBtn.disabled = true;
       document.querySelectorAll('.plinko-bucket').forEach((b) => b.classList.remove('plinko-bucket-hit'));
       try {
-        const res = await Api.plinkoPlay(bet, this.risk);
+        const fairness = await Api.fairnessCommit('plinko');
+        const res = await Api.plinkoPlay(bet, this.risk, fairness.commitmentId);
         this.animateBall(res.path, res.bucketIndex, () => {
           window.updateBalanceUI(res.newBalance);
           toast(res.payout >= bet ? `Выигрыш ×${res.multiplier}: +${res.payout} ⭐` : `Мимо: ×${res.multiplier}`, res.payout >= bet ? 'info' : 'error');
@@ -1089,7 +1092,8 @@
       $('#upgrade-status-label').textContent = 'Крутим...';
 
       try {
-        const res = await Api.upgradePlay(bet, this.chance);
+        const fairness = await Api.fairnessCommit('upgrade');
+        const res = await Api.upgradePlay(bet, this.chance, fairness.commitmentId);
         const rollAngle = (res.roll / 100) * 360;
         this.totalRotation += 360 * 3 - (this.totalRotation % 360) + rollAngle;
         $('#upgrade-needle').style.transform = `rotate(${this.totalRotation}deg)`;
@@ -1181,7 +1185,8 @@
       $('#wheel-result').classList.add('hidden');
 
       try {
-        const res = await Api.wheelPlay(bet);
+        const fairness = await Api.fairnessCommit('wheel');
+        const res = await Api.wheelPlay(bet, fairness.commitmentId);
         this.segments = res.segments;
         $('#wheel-disc').style.background = this.buildGradient(this.segments);
 

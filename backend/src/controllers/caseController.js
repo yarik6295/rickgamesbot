@@ -1,6 +1,7 @@
 const db = require('../db/database');
 const { rollWeightedItem } = require('../services/rngService');
 const { getOrCreateUser, computeLevel, invalidateUserCache } = require('../services/userService');
+const { createCommitment, consumeCommitment, publicFairness } = require('../services/fairnessService');
 
 const FREE_CASE_SLUG = 'free_case';
 const FREE_CASE_COOLDOWN_MS = 24 * 60 * 60 * 1000;
@@ -49,6 +50,13 @@ async function getCaseDetails(req, res) {
     res.json({ case: decorateCase(caseRow, user), items });
 }
 
+async function caseFairnessCommit(req, res) {
+    const user = await getOrCreateUser(req.telegramUser);
+    const caseRow = await db.get(`SELECT id FROM cases WHERE slug = ? AND is_active = 1`, [req.params.slug]);
+    if (!caseRow) return res.status(404).json({ error: 'Кейс не найден' });
+    res.json({ success: true, ...createCommitment(user.id, `case:${caseRow.id}`) });
+}
+
 /**
  * POST /api/cases/:slug/open
  * Списание виртуальных звёзд (кроме бесплатного кейса), server-side RNG,
@@ -75,6 +83,20 @@ async function openCase(req, res) {
                 const status = freeCaseStatus(user);
                 if (!status.available) {
                     throw { status: 429, message: 'Бесплатный кейс уже открыт сегодня. Возвращайтесь через 24 часа.', nextAt: status.nextAt };
+                }
+
+                // Проверки по объекту user достаточно для быстрого UX, но
+                // не для двух параллельных открытий: оба запроса могли бы
+                // увидеть старый last_free_case_at и начислить две награды.
+                // Условный UPDATE превращает проверку кулдауна и его захват
+                // в одну операцию БД; при гонке победит ровно один запрос.
+                const claimed = await tx.run(`
+                    UPDATE users SET last_free_case_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                      AND (last_free_case_at IS NULL OR last_free_case_at <= datetime('now', '-24 hours'))
+                `, [user.id]);
+                if (claimed.changes !== 1) {
+                    throw { status: 429, message: 'Бесплатный кейс уже открыт сегодня. Возвращайтесь через 24 часа.' };
                 }
             } else if (user.coins_balance < caseRow.price_coins) {
                 throw { status: 402, message: 'Недостаточно звёзд на балансе' };
@@ -109,7 +131,9 @@ async function openCase(req, res) {
                 `, [user.id, -caseRow.price_coins, balanceAfterDebit, caseRow.id]);
             }
 
-            const { item: wonTier, rollValue, serverSeed } = rollWeightedItem(items);
+            const fairness = consumeCommitment(user.id, `case:${caseRow.id}`, req.body.commitmentId);
+            const { serverSeed } = fairness;
+            const { item: wonTier, rollValue } = rollWeightedItem(items, serverSeed);
 
             // Выигрыш сразу зачисляется на баланс — тоже атомарным инкрементом.
             const credited = await tx.get(`
@@ -128,10 +152,6 @@ async function openCase(req, res) {
                 VALUES (?, ?, ?, ?, ?)
             `, [user.id, caseRow.id, wonTier.id, serverSeed, rollValue]);
 
-            if (isFreeCase) {
-                await tx.run(`UPDATE users SET last_free_case_at = CURRENT_TIMESTAMP WHERE id = ?`, [user.id]);
-            }
-
             const casesOpened = user.cases_opened + 1;
             const newLevel = computeLevel(casesOpened);
             await tx.run(`UPDATE users SET cases_opened = ?, account_level = ? WHERE id = ?`, [casesOpened, newLevel, user.id]);
@@ -144,6 +164,7 @@ async function openCase(req, res) {
                 accountLevel: newLevel,
                 freeCaseNextAt: isFreeCase ? Date.now() + FREE_CASE_COOLDOWN_MS : undefined,
                 reelPool: items.map((i) => ({ id: i.id, value_coins: i.value_coins, rarity: i.rarity })),
+                provablyFair: publicFairness(serverSeed),
             };
         });
 
@@ -160,4 +181,4 @@ async function openCase(req, res) {
     }
 }
 
-module.exports = { listCases, getCaseDetails, openCase };
+module.exports = { listCases, getCaseDetails, caseFairnessCommit, openCase };

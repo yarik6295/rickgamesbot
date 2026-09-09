@@ -1,6 +1,8 @@
 const db = require('../db/database');
 const { generateCrashPoint } = require('./gamesService');
 const { touchCachedBalance } = require('./userService');
+const { hashServerSeed } = require('./fairnessService');
+const crypto = require('crypto');
 
 /**
  * Crash — общий "живой" раунд для всех игроков одновременно (см. подробное
@@ -31,7 +33,7 @@ const state = {
     phaseStartedAt: Date.now(),
     flyingStartedAt: null,
     crashPoint: null,
-    serverSeed: null,
+    serverSeed: crypto.randomBytes(32).toString('hex'),
     history: [],
     players: new Map(),
 };
@@ -96,18 +98,19 @@ function startWaiting(now) {
     state.phaseStartedAt = now;
     state.flyingStartedAt = null;
     state.crashPoint = null;
-    state.serverSeed = null;
+    // The hash is public throughout the betting window, before this seed can
+    // affect the crash point.  The seed itself is revealed after the crash.
+    state.serverSeed = crypto.randomBytes(32).toString('hex');
     state.roundId += 1;
     state.players = new Map();
 }
 
 function startFlying(now) {
-    const { crashPoint, serverSeed } = generateCrashPoint();
+    const { crashPoint } = generateCrashPoint(state.serverSeed);
     state.phase = 'flying';
     state.phaseStartedAt = now;
     state.flyingStartedAt = now;
     state.crashPoint = crashPoint;
-    state.serverSeed = serverSeed;
 }
 
 function crashRound(now) {
@@ -256,6 +259,7 @@ function getPublicState(userId) {
         playersCount: state.players.size,
         history: state.history.map((h) => h.point),
         waitingMs: WAITING_MS,
+        serverSeedHash: hashServerSeed(state.serverSeed),
     };
     if (state.phase === 'waiting') {
         base.msLeft = Math.max(0, WAITING_MS - (now - state.phaseStartedAt));
@@ -265,6 +269,7 @@ function getPublicState(userId) {
         base.growthK = GROWTH_K;
     } else if (state.phase === 'crashed') {
         base.crashPoint = state.crashPoint;
+        base.serverSeed = state.serverSeed;
         base.msLeft = Math.max(0, CRASHED_MS - (now - state.phaseStartedAt));
     }
     const mine = userId != null ? state.players.get(userId) : null;

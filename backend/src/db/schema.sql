@@ -1,9 +1,7 @@
 -- =========================================================
 -- Rick Games — схема базы данных (SQLite)
 -- ВАЖНО: coins_balance — ПОЛНОСТЬЮ ВИРТУАЛЬНАЯ валюта.
--- Её нельзя купить за реальные деньги и нельзя вывести.
--- Пополняется только через игровые механики (ежедневный бонус,
--- достижения, рефералы) — см. userRoutes.
+-- Её нельзя вывести в деньги или подарки.
 -- =========================================================
 
 -- Пользователи (привязаны к Telegram ID)
@@ -13,11 +11,10 @@ CREATE TABLE IF NOT EXISTS users (
     username        TEXT,
     first_name      TEXT,
     photo_url       TEXT,
-    coins_balance   INTEGER NOT NULL DEFAULT 0,       -- виртуальный баланс (стартовый бонус)
+    coins_balance   INTEGER NOT NULL DEFAULT 0,       -- стартовый бонус начисляет userService при создании
     account_level   INTEGER NOT NULL DEFAULT 1,
     cases_opened    INTEGER NOT NULL DEFAULT 0,
     xp              INTEGER NOT NULL DEFAULT 0,
-    last_daily_bonus_at DATETIME,                     -- когда последний раз забирал ежедневный бонус
     last_free_case_at DATETIME,                       -- когда последний раз открывал бесплатный кейс (раз в 24ч)
     leaderboard_anonymous INTEGER NOT NULL DEFAULT 1, -- 1 = в топе игроков показывается как "Аноним" (по умолчанию), 0 = показывается имя
     created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -59,6 +56,8 @@ CREATE TABLE IF NOT EXISTS transactions (
     -- существующей удалённой (Turso) базе — для баз, созданных до этого
     -- фикса, нужна ручная миграция (пересоздать constraint/таблицу),
     -- иначе первая же отмена чека упадёт с ошибкой CHECK.
+    -- daily_bonus оставлен только для совместимости с историческими
+    -- строками уже развёрнутых баз: новой фичи/роута ежедневного бонуса нет.
     type            TEXT NOT NULL CHECK(type IN (
                         'daily_bonus','case_open','sell_item','admin_adjust',
                         'game_bet','game_win','self_topup','stars_topup',

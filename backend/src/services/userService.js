@@ -25,6 +25,11 @@ const CACHE_TTL_MS = 5000;
 const userCacheByTelegramId = new Map(); // telegram_id -> { user, cachedAt }
 const telegramIdByUserId = new Map();    // id -> telegram_id (для точечных обновлений баланса)
 
+// 5 ⭐ дают новому игроку ровно одну минимальную ставку, но не обходят
+// экономику кейсов или пополнения. Бонус выдаётся один раз при создании
+// аккаунта и не является повторяемым источником баланса.
+const NEW_USER_START_BONUS = 5;
+
 function cacheUser(telegramId, user) {
     userCacheByTelegramId.set(telegramId, { user, cachedAt: Date.now() });
     telegramIdByUserId.set(user.id, telegramId);
@@ -47,10 +52,38 @@ async function getOrCreateUser(telegramUser, executor = db) {
         return existing;
     }
 
+    // Несколько первых запросов от одного Mini App (например, профиль и
+    // каталог кейсов) могут прийти параллельно. SELECT-затем-INSERT давал
+    // обоим увидеть "пользователя нет", а второй INSERT падал на UNIQUE.
+    // Конфликт обрабатывает сама БД; проигравший запрос просто читает уже
+    // созданную строку и не получает второй стартовый бонус.
     const info = await executor.run(`
         INSERT INTO users (telegram_id, username, first_name, photo_url, coins_balance, account_level, cases_opened)
         VALUES (?, ?, ?, ?, 0, 1, 0)
+        ON CONFLICT(telegram_id) DO NOTHING
     `, [telegramUser.id, telegramUser.username || null, telegramUser.first_name || null, telegramUser.photo_url || null]);
+
+    if (info.changes === 0) {
+        const createdByParallelRequest = await executor.get(`SELECT * FROM users WHERE telegram_id = ?`, [telegramUser.id]);
+        if (createdByParallelRequest) {
+            cacheUser(telegramUser.id, createdByParallelRequest);
+            return createdByParallelRequest;
+        }
+        throw new Error('Не удалось создать или получить пользователя');
+    }
+
+    // Не записываем абсолютный баланс даже для welcome-бонуса. Такой же
+    // атомарный инкремент, как в играх и платежах, остаётся корректным, если
+    // создание пользователя происходит внутри уже открытой транзакции.
+    const credited = await executor.get(`
+        UPDATE users SET coins_balance = coins_balance + ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+        RETURNING coins_balance
+    `, [NEW_USER_START_BONUS, info.lastInsertRowid]);
+    await executor.run(`
+        INSERT INTO transactions (user_id, type, amount_coins, balance_after)
+        VALUES (?, 'admin_adjust', ?, ?)
+    `, [info.lastInsertRowid, NEW_USER_START_BONUS, credited.coins_balance]);
 
     const created = await executor.get(`SELECT * FROM users WHERE id = ?`, [info.lastInsertRowid]);
     // Кэшируем ТОЛЬКО уже существующих пользователей (ветка `existing` выше).
@@ -91,7 +124,7 @@ async function getUserById(id, executor = db) {
 
 /**
  * Уровень аккаунта — чисто косметический прогресс (влияет на доступ к кейсам
- * и на размер ежедневного бонуса), НЕ на возможность вывода чего-либо реального.
+ * и на доступ к части кейсов), НЕ на возможность вывода чего-либо реального.
  */
 function computeLevel(casesOpened) {
     if (casesOpened >= 100) return 5;
@@ -117,4 +150,5 @@ module.exports = {
     touchCachedBalance,
     invalidateUserCache,
     setLeaderboardAnonymous,
+    NEW_USER_START_BONUS,
 };

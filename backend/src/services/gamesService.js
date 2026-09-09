@@ -1,4 +1,4 @@
-const crypto = require('crypto');
+const { deterministicInt } = require('./rngService');
 
 /**
  * Вся логика игр — ТОЛЬКО на сервере. Клиент отправляет лишь намерения
@@ -10,36 +10,32 @@ const crypto = require('crypto');
  * с реальными деньгами.
  */
 
-function randomFloat() {
-    // криптографически стойкое число в [0, 1)
-    return crypto.randomInt(0, 1_000_000_000) / 1_000_000_000;
-}
-
 /* ================================ CRASH ================================ */
 // Классическая provably-fair формула кривой краша с house edge.
 const CRASH_HOUSE_EDGE = 0.04;
 
-function generateCrashPoint() {
-    const serverSeed = crypto.randomBytes(16).toString('hex');
-    const hash = crypto.createHash('sha256').update(serverSeed).digest('hex');
+function generateCrashPoint(serverSeed) {
+    if (!serverSeed) throw new Error('Для Crash требуется serverSeed');
+    const hash = require('crypto').createHash('sha256').update(serverSeed).digest('hex');
     const h = parseInt(hash.slice(0, 13), 16);
     const e = Math.pow(2, 52);
 
     // ~4% шанс мгновенного краша на 1.00x (как и в референсных crash-играх)
     if (h % 33 === 0) {
-        return { crashPoint: 1.00, serverSeed };
+        return { crashPoint: 1.00 };
     }
     let crashPoint = (100 * e - h) / (e - h);
     crashPoint = crashPoint * (1 - CRASH_HOUSE_EDGE) / 100;
     crashPoint = Math.max(1.00, Math.floor(crashPoint * 100) / 100);
-    return { crashPoint, serverSeed };
+    return { crashPoint };
 }
 
 /* ================================ MINES ================================ */
-function generateMinePositions(gridSize, mineCount) {
+function generateMinePositions(gridSize, mineCount, serverSeed) {
     const positions = new Set();
+    let counter = 0;
     while (positions.size < mineCount) {
-        positions.add(crypto.randomInt(0, gridSize));
+        positions.add(deterministicInt(serverSeed, 'mines', counter++, gridSize));
     }
     return [...positions];
 }
@@ -64,13 +60,13 @@ const PLINKO_MULTIPLIERS = {
     high:   [29, 4, 1.5, 0.3, 0.2, 0.3, 1.5, 4, 29],
 };
 
-function playPlinko(risk) {
+function playPlinko(risk, serverSeed) {
     const rows = 8; // 8 рядов колышков -> 9 корзин
     const multipliers = PLINKO_MULTIPLIERS[risk] || PLINKO_MULTIPLIERS.medium;
     let position = 0;
     const path = [];
     for (let i = 0; i < rows; i++) {
-        const goRight = crypto.randomInt(0, 2) === 1;
+        const goRight = deterministicInt(serverSeed, `plinko:${risk}`, i, 2) === 1;
         path.push(goRight ? 'R' : 'L');
         if (goRight) position++;
     }
@@ -80,11 +76,12 @@ function playPlinko(risk) {
 
 /* ================================ TOWERS ================================ */
 // N рядов, в каждом ряду `tilesPerRow` плиток, из них `bombsPerRow` — бомбы.
-function generateTowerLayout(rows, tilesPerRow, bombsPerRow) {
+function generateTowerLayout(rows, tilesPerRow, bombsPerRow, serverSeed) {
     const layout = [];
     for (let r = 0; r < rows; r++) {
         const bombs = new Set();
-        while (bombs.size < bombsPerRow) bombs.add(crypto.randomInt(0, tilesPerRow));
+        let counter = 0;
+        while (bombs.size < bombsPerRow) bombs.add(deterministicInt(serverSeed, `towers:${r}`, counter++, tilesPerRow));
         layout.push([...bombs]);
     }
     return layout;
@@ -108,8 +105,8 @@ function upgradeMultiplier(chance) {
     return Math.round((100 / chance) * (1 - UPGRADE_HOUSE_EDGE) * 100) / 100;
 }
 
-function playUpgrade(chance) {
-    const roll = crypto.randomInt(1, 101); // 1..100 включительно
+function playUpgrade(chance, serverSeed) {
+    const roll = deterministicInt(serverSeed, 'upgrade', 0, 100) + 1;
     const win = roll <= chance;
     return { win, roll, multiplier: upgradeMultiplier(chance) };
 }
@@ -131,9 +128,9 @@ const WHEEL_SEGMENTS = [
     { multiplier: 20,   weight: 1,  color: '#b026ff' },
 ];
 
-function playWheel() {
+function playWheel(serverSeed) {
     const totalWeight = WHEEL_SEGMENTS.reduce((sum, s) => sum + s.weight, 0);
-    const roll = crypto.randomInt(0, totalWeight);
+    const roll = deterministicInt(serverSeed, 'wheel', 0, totalWeight);
     let cumulative = 0;
     let segmentIndex = WHEEL_SEGMENTS.length - 1;
     for (let i = 0; i < WHEEL_SEGMENTS.length; i++) {
@@ -144,7 +141,6 @@ function playWheel() {
 }
 
 module.exports = {
-    randomFloat,
     generateCrashPoint,
     generateMinePositions,
     minesMultiplier,

@@ -1,5 +1,5 @@
 const db = require('../db/database');
-const { getOrCreateUser, touchCachedBalance } = require('../services/userService');
+const { getOrCreateUser, getUserById, touchCachedBalance } = require('../services/userService');
 const crashEngine = require('../services/crashEngine');
 const activeRounds = require('../services/activeRoundsStore');
 const {
@@ -15,7 +15,7 @@ const {
     WHEEL_SEGMENTS,
     playWheel,
 } = require('../services/gamesService');
-const crypto = require('crypto');
+const { createCommitment, consumeCommitment, publicFairness } = require('../services/fairnessService');
 
 const MIN_BET = 5;
 const MAX_BET = 100000;
@@ -128,6 +128,18 @@ async function crashState(req, res) {
     res.json(crashEngine.getPublicState(user.id));
 }
 
+// Instant games need an explicit preflight because their result is returned in
+// the same request.  Requiring this one-time commitment means the player has
+// seen SHA-256(seed) before the server is allowed to consume that seed.
+async function fairnessCommit(req, res) {
+    const gameType = String(req.params.gameType || '');
+    if (!['mines', 'towers', 'plinko', 'upgrade', 'wheel'].includes(gameType)) {
+        return res.status(404).json({ error: 'Неизвестная игра' });
+    }
+    const user = await getOrCreateUser(req.telegramUser);
+    res.json({ success: true, ...createCommitment(user.id, gameType) });
+}
+
 async function crashBet(req, res) {
     try {
         const user = await getOrCreateUser(req.telegramUser);
@@ -175,8 +187,9 @@ async function minesStart(req, res) {
         const bet = validateBet(req.body.bet, user.coins_balance);
         const gridSize = 25;
         const mineCount = Math.min(Math.max(Number(req.body.mineCount) || 3, 1), 24);
-        const mines = generateMinePositions(gridSize, mineCount);
-        const serverSeed = crypto.randomBytes(16).toString('hex');
+        const fairness = consumeCommitment(user.id, 'mines', req.body.commitmentId);
+        const { serverSeed } = fairness;
+        const mines = generateMinePositions(gridSize, mineCount, serverSeed);
 
         // Бронируем слот активного раунда СИНХРОННО, до await debit() — см.
         // подробный комментарий у Crash.placeBet() в crashEngine.js: та же
@@ -202,7 +215,7 @@ async function minesStart(req, res) {
         `, [user.id, bet, JSON.stringify({ gridSize, mineCount }), JSON.stringify({ mines }), serverSeed])
             .catch((err) => console.error('[mines] Не удалось сохранить активный раунд в БД:', err));
 
-        res.json({ success: true, newBalance, gridSize, mineCount });
+        res.json({ success: true, newBalance, gridSize, mineCount, provablyFair: { serverSeedHash: fairness.serverSeedHash } });
     } catch (err) {
         res.status(err.status || 500).json({ error: err.message || 'Ошибка запуска раунда' });
     }
@@ -235,9 +248,12 @@ async function minesReveal(req, res) {
             logRound(user.id, 'mines', session.bet, 0, 0, 'lose',
                 { gridSize: session.gridSize, mineCount: session.mineCount, mines: session.mines, revealed: revealedAtLoss },
                 session.serverSeed).catch((err) => console.error('[mines] Не удалось записать проигрышный раунд:', err));
-            // Баланс на проигрыше не меняется (ставка уже списана на старте) —
-            // отдаём его из уже имеющегося в памяти user без похода в БД.
-            return res.json({ success: true, hit: true, mines: session.mines, newBalance: user.coins_balance });
+            // Ставка уже списана на старте, но за время активного раунда
+            // баланс мог измениться в другом пути (Stars, промокод). Не
+            // возвращаем TTL-кэш как источник истины: на финальном ответе
+            // читаем актуальное значение из БД для согласованного UI.
+            const freshUser = await getUserById(user.id, db);
+            return res.json({ success: true, hit: true, mines: session.mines, newBalance: freshUser.coins_balance });
         }
 
         session.revealed.push(tile);
@@ -331,15 +347,16 @@ async function plinkoPlay(req, res) {
             const bet = validateBet(req.body.bet, user.coins_balance);
             const risk = ['low', 'medium', 'high'].includes(req.body.risk) ? req.body.risk : 'medium';
 
-            const { path, bucketIndex, multiplier } = playPlinko(risk);
+            const fairness = consumeCommitment(user.id, 'plinko', req.body.commitmentId);
+            const { path, bucketIndex, multiplier } = playPlinko(risk, fairness.serverSeed);
             const payout = Math.floor(bet * multiplier);
-            const serverSeed = crypto.randomBytes(16).toString('hex');
+            const serverSeed = fairness.serverSeed;
 
             await debit(user.id, bet, 'game_bet', null, tx);
             const newBalance = await credit(user.id, payout, 'game_win', null, tx);
             await logRound(user.id, 'plinko', bet, payout, multiplier, payout > bet ? 'win' : 'lose', { risk, path, bucketIndex }, serverSeed, tx);
 
-            return { path, bucketIndex, multiplier, payout, newBalance };
+            return { path, bucketIndex, multiplier, payout, newBalance, provablyFair: publicFairness(serverSeed) };
         });
 
         res.json({ success: true, ...result });
@@ -364,8 +381,9 @@ async function towersStart(req, res) {
         }
 
         const bet = validateBet(req.body.bet, user.coins_balance);
-        const layout = generateTowerLayout(TOWERS_ROWS, TOWERS_TILES_PER_ROW, TOWERS_BOMBS_PER_ROW);
-        const serverSeed = crypto.randomBytes(16).toString('hex');
+        const fairness = consumeCommitment(user.id, 'towers', req.body.commitmentId);
+        const { serverSeed } = fairness;
+        const layout = generateTowerLayout(TOWERS_ROWS, TOWERS_TILES_PER_ROW, TOWERS_BOMBS_PER_ROW, serverSeed);
 
         // См. комментарий у minesStart() выше / Crash.placeBet() — бронируем
         // слот раунда до похода в БД за списанием, чтобы исключить двойное
@@ -390,7 +408,7 @@ async function towersStart(req, res) {
             JSON.stringify({ layout }), serverSeed])
             .catch((err) => console.error('[towers] Не удалось сохранить активный раунд в БД:', err));
 
-        res.json({ success: true, newBalance, rows: TOWERS_ROWS, tilesPerRow: TOWERS_TILES_PER_ROW });
+        res.json({ success: true, newBalance, rows: TOWERS_ROWS, tilesPerRow: TOWERS_TILES_PER_ROW, provablyFair: { serverSeedHash: fairness.serverSeedHash } });
     } catch (err) {
         res.status(err.status || 500).json({ error: err.message || 'Ошибка запуска раунда' });
     }
@@ -424,7 +442,11 @@ async function towersPick(req, res) {
             logRound(user.id, 'towers', session.bet, 0, 0, 'lose',
                 { rows: session.rows, tilesPerRow: session.tilesPerRow, bombsPerRow: session.bombsPerRow, layout: session.layout, revealed: revealedAtLoss },
                 session.serverSeed).catch((err) => console.error('[towers] Не удалось записать проигрышный раунд:', err));
-            return res.json({ success: true, hit: true, layout: session.layout, newBalance: user.coins_balance });
+            // Как и в Mines: за время раунда баланс мог измениться другим
+            // разрешённым действием. Финальный ответ читает БД, а не TTL-кэш,
+            // чтобы интерфейс не откатился к устаревшему числу.
+            const freshUser = await getUserById(user.id, db);
+            return res.json({ success: true, hit: true, layout: session.layout, newBalance: freshUser.coins_balance });
         }
 
         session.revealed.push(tile);
@@ -541,8 +563,9 @@ async function upgradePlay(req, res) {
             const stakeValue = validateBet(req.body.bet, user.coins_balance);
             await debit(user.id, stakeValue, 'game_bet', null, tx);
 
-            const { win, roll } = playUpgrade(chance);
-            const serverSeed = crypto.randomBytes(16).toString('hex');
+            const fairness = consumeCommitment(user.id, 'upgrade', req.body.commitmentId);
+            const { win, roll } = playUpgrade(chance, fairness.serverSeed);
+            const serverSeed = fairness.serverSeed;
 
             let payoutCoins = 0;
             let newBalance = (await tx.get(`SELECT coins_balance FROM users WHERE id = ?`, [user.id])).coins_balance;
@@ -554,7 +577,7 @@ async function upgradePlay(req, res) {
 
             await logRound(user.id, 'upgrade', stakeValue, payoutCoins, multiplier, win ? 'win' : 'lose', { chance, roll }, serverSeed, tx);
 
-            return { win, roll, chance, multiplier, payoutCoins, newBalance };
+            return { win, roll, chance, multiplier, payoutCoins, newBalance, provablyFair: publicFairness(serverSeed) };
         });
 
         res.json({ success: true, ...result });
@@ -570,15 +593,16 @@ async function wheelPlay(req, res) {
             const user = await getOrCreateUser(req.telegramUser, tx);
             const bet = validateBet(req.body.bet, user.coins_balance);
 
-            const { segmentIndex, multiplier } = playWheel();
+            const fairness = consumeCommitment(user.id, 'wheel', req.body.commitmentId);
+            const { segmentIndex, multiplier } = playWheel(fairness.serverSeed);
             const payout = Math.round(bet * multiplier);
-            const serverSeed = crypto.randomBytes(16).toString('hex');
+            const serverSeed = fairness.serverSeed;
 
             await debit(user.id, bet, 'game_bet', null, tx);
             const newBalance = await credit(user.id, payout, 'game_win', null, tx);
             await logRound(user.id, 'wheel', bet, payout, multiplier, payout >= bet ? 'win' : 'lose', { segmentIndex }, serverSeed, tx);
 
-            return { segmentIndex, multiplier, payout, newBalance };
+            return { segmentIndex, multiplier, payout, newBalance, provablyFair: publicFairness(serverSeed) };
         });
 
         res.json({ success: true, ...result, segments: WHEEL_SEGMENTS });
@@ -588,7 +612,7 @@ async function wheelPlay(req, res) {
 }
 
 module.exports = {
-    crashState, crashBet, crashCashout,
+    crashState, crashBet, crashCashout, fairnessCommit,
     minesStart, minesStatus, minesReveal, minesCashout,
     plinkoPlay,
     towersStart, towersStatus, towersPick, towersCashout,

@@ -255,7 +255,10 @@ $('#btn-open-case').addEventListener('click', async () => {
   $('#roulette-result').classList.add('hidden');
 
   try {
-    const result = await Api.openCase(state.currentCase.slug);
+    // Сначала получаем опубликованный hash скрытого seed, и лишь затем
+    // расходуем его на открытие: так результат можно проверить после reveal.
+    const fairness = await Api.caseFairnessCommit(state.currentCase.slug);
+    const result = await Api.openCase(state.currentCase.slug, fairness.commitmentId);
 
     TelegramBridge.haptic('light');
 

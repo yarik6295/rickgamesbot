@@ -212,7 +212,6 @@ async function handlePromoMessage(message) {
 }
 
 const TX_TYPE_LABELS = {
-    daily_bonus: 'Ежедневный бонус',
     case_open: 'Открытие кейса',
     sell_item: 'Продажа предмета',
     admin_adjust: 'Корректировка',

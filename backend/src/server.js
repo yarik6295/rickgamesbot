@@ -20,7 +20,30 @@ if (process.env.NODE_ENV === 'production' && process.env.DEV_SKIP_TELEGRAM_AUTH 
     process.exit(1);
 }
 
+function warnAboutSingleInstanceLimit() {
+    // activeRoundsStore, crashEngine, the short user cache and unrevealed
+    // provably-fair commitments intentionally live in this Node process. A
+    // second worker would have a different copy, so a load balancer could
+    // send two requests from one player to inconsistent game state.
+    const configuredCount = Number(
+        process.env.APP_INSTANCE_COUNT ||
+        process.env.WEB_CONCURRENCY ||
+        process.env.PM2_INSTANCES ||
+        process.env.CLUSTER_WORKERS ||
+        1
+    );
+    const loadBalancerEnabled = process.env.LOAD_BALANCER_ENABLED === 'true';
+    if (configuredCount > 1 || loadBalancerEnabled) {
+        console.warn(
+            '[WARNING] Single-instance only: обнаружено несколько инстансов/балансировщик. ' +
+            'Crash, активные Mines/Towers и in-memory кэш не синхронизируются между процессами. ' +
+            'Запускайте один инстанс, пока состояние не будет вынесено в общее хранилище.'
+        );
+    }
+}
+
 async function start() {
+    warnAboutSingleInstanceLimit();
     console.log('[db] Применяем схему...');
     await db.init();
 

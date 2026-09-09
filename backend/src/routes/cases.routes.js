@@ -2,7 +2,7 @@ const express = require('express');
 const rateLimit = require('express-rate-limit');
 const router = express.Router();
 const telegramAuth = require('../middleware/telegramAuth');
-const { listCases, getCaseDetails, openCase } = require('../controllers/caseController');
+const { listCases, getCaseDetails, caseFairnessCommit, openCase } = require('../controllers/caseController');
 
 // Ограничиваем частоту открытия кейсов, чтобы затруднить брутфорс/абьюз.
 //
@@ -22,6 +22,7 @@ const openCaseLimiter = rateLimit({
 // для конкретного пользователя, доступен ли ему бесплатный кейс прямо сейчас
 // (кулдаун 24ч хранится per-user).
 router.get('/', telegramAuth, listCases);
+router.get('/fairness/:slug', telegramAuth, caseFairnessCommit);
 router.get('/:slug', telegramAuth, getCaseDetails);
 router.post('/:slug/open', telegramAuth, openCaseLimiter, openCase);
 
