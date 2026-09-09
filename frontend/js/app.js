@@ -55,10 +55,16 @@ function switchTab(tabName) {
 
   if (tabName === 'profile') loadProfile();
   if (tabName === 'leaders') loadLeaders();
+  if (tabName === 'promos') loadMyPromos();
+  if (tabName === 'referrals') loadReferrals();
+  if (tabName === 'history') loadTransactions();
+  if (tabName === 'piggybank') loadPiggyBank();
 }
 window.switchTab = switchTab;
 
 $$('.nav-btn').forEach((btn) => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
+$$('.profile-section-link').forEach((btn) => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
+$$('.btn-back-to-profile').forEach((btn) => btn.addEventListener('click', () => switchTab('profile')));
 
 /* ============================= БАЛАНС ============================= */
 
@@ -432,10 +438,15 @@ async function loadProfile() {
 
     updateBalanceUI(user.coins_balance);
 
+  } catch (e) {
+    showToast(e.message, 'error');
+  }
+}
+
+async function loadTransactions() {
+  try {
     const { transactions } = await Api.getTransactions();
     renderTransactions(transactions);
-    await loadMyPromos();
-    await loadReferrals();
   } catch (e) {
     showToast(e.message, 'error');
   }
@@ -475,6 +486,42 @@ $('#btn-copy-referral')?.addEventListener('click', async () => {
   }
 });
 
+async function loadPiggyBank() {
+  const balance = $('#piggy-bank-balance');
+  const progress = $('#piggy-bank-progress');
+  const hint = $('#piggy-bank-hint');
+  const button = $('#btn-piggy-bank-withdraw');
+  try {
+    const { piggyBank } = await Api.getPiggyBank();
+    balance.textContent = `${piggyBank.balance.toFixed(2)} ⭐`;
+    const percent = Math.min(100, (piggyBank.balance / piggyBank.minimumWithdrawal) * 100);
+    progress.style.width = `${percent}%`;
+    button.disabled = !piggyBank.canWithdraw;
+    hint.textContent = piggyBank.canWithdraw
+      ? `Доступно к выводу: ${piggyBank.withdrawableStars} ⭐`
+      : `До вывода осталось ${(piggyBank.minimumWithdrawal - piggyBank.balance).toFixed(2)} ⭐`;
+  } catch (e) {
+    balance.textContent = '—';
+    hint.textContent = 'Не удалось загрузить копилку.';
+    button.disabled = true;
+  }
+}
+
+$('#btn-piggy-bank-withdraw')?.addEventListener('click', async () => {
+  const button = $('#btn-piggy-bank-withdraw');
+  button.disabled = true;
+  try {
+    const result = await Api.withdrawPiggyBank();
+    updateBalanceUI(result.newBalance);
+    TelegramBridge.haptic('success');
+    showToast(`На баланс зачислено ${result.payout} ⭐`);
+    await loadPiggyBank();
+  } catch (e) {
+    showToast(e.message, 'error');
+    await loadPiggyBank();
+  }
+});
+
 const anonToggleEl = $('#toggle-leaderboard-anon');
 if (anonToggleEl) {
   anonToggleEl.addEventListener('change', async () => {
@@ -502,10 +549,12 @@ const TX_LABELS = {
   admin_adjust: '⚙️ Корректировка',
   game_bet: '🎮 Ставка в игре',
   game_win: '🏆 Выигрыш в игре',
+  game_refund: '↩️ Возврат ставки',
   self_topup: '⭐ Пополнение баланса',
   stars_topup: '⭐ Пополнение через Telegram Stars',
   referral_bonus: '👥 Бонус за приглашение',
   referral_commission: '👥 Реферальная комиссия',
+  piggybank_withdraw: '🐷 Вывод из копилки',
 };
 
 function renderTransactions(transactions) {
@@ -591,7 +640,7 @@ async function loadMyPromos() {
         try {
           const result = await Api.cancelPromo(promoId);
           updateBalanceUI(result.newBalance);
-          await loadProfile();
+          await loadMyPromos();
           TelegramBridge.haptic('success');
           showToast(`Чек деактивирован. Возвращено ${result.refund} ⭐`);
         } catch (e) {
@@ -622,7 +671,7 @@ $('#btn-promo-create-submit')?.addEventListener('click', async () => {
     const result = await Api.createPromo(amount, maxUses);
     updateBalanceUI(result.newBalance);
     closePromoModal();
-    await loadProfile();
+    await loadMyPromos();
     TelegramBridge.haptic('success');
     showToast(`Чек ${result.code} создан. Списано ${result.reserved} ⭐`);
     setTimeout(() => window.prompt('Твой чек — скопируй его:', result.code), 50);
@@ -645,7 +694,7 @@ $('#btn-promo-redeem-submit')?.addEventListener('click', async () => {
     const result = await Api.redeemPromo(code);
     updateBalanceUI(result.newBalance);
     closePromoModal();
-    await loadProfile();
+    await loadMyPromos();
     TelegramBridge.haptic('success');
     showToast(`Чек активирован: +${result.amount} ⭐`);
   } catch (e) {

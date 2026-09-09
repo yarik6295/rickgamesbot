@@ -1,5 +1,6 @@
 const db = require('../db/database');
 const { getOrCreateUser, getUserById, touchCachedBalance } = require('../services/userService');
+const { accruePiggyBank } = require('../services/piggyBankService');
 const crashEngine = require('../services/crashEngine');
 const activeRounds = require('../services/activeRoundsStore');
 const {
@@ -86,6 +87,7 @@ async function debit(userId, amount, type, referenceId = null, executor = db) {
     } else {
         await logInsert;
     }
+    if (type === 'game_bet') await accruePiggyBank(userId, amount, executor);
     return newBalance;
 }
 

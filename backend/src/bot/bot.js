@@ -247,10 +247,12 @@ const TX_TYPE_LABELS = {
     admin_adjust: 'Корректировка',
     game_bet: 'Ставка в игре',
     game_win: 'Выигрыш в игре',
+    game_refund: 'Возврат ставки',
     self_topup: 'Пополнение',
     stars_topup: 'Пополнение Stars',
     referral_bonus: 'Бонус за приглашение',
     referral_commission: 'Реферальная комиссия',
+    piggybank_withdraw: 'Вывод из копилки',
 };
 
 async function historyText(telegramUser) {

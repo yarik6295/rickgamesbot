@@ -455,6 +455,21 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .referral-stat span { display: block; color: #00f6ff; font-weight: 800; font-size: 1rem; }
 .referral-stat small { color: rgba(255,255,255,.4); font-size: .65rem; }
 
+/* ---------- Разделы профиля и копилка ---------- */
+.tab-header { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.tab-header .section-title { margin: 0; }
+.profile-actions-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.profile-section-link { text-align: left; padding: 14px; border-radius: 16px; border: 1px solid rgba(255,255,255,.09); background: rgba(255,255,255,.045); transition: transform .15s ease, background .15s ease; }
+.profile-section-link:active { transform: scale(.97); background: rgba(176,38,255,.15); }
+.profile-section-link span { display: block; font-size: 1.45rem; margin-bottom: 6px; }
+.profile-section-link strong, .profile-section-link small { display: block; }
+.profile-section-link strong { font-size: .86rem; }
+.profile-section-link small { color: rgba(255,255,255,.42); font-size: .64rem; margin-top: 3px; line-height: 1.2; }
+.piggy-bank-card { border-color: rgba(255,216,61,.32); background: radial-gradient(circle at 50% 0%, rgba(255,216,61,.13), transparent 48%), rgba(18,18,31,.88); }
+.piggy-bank-balance { font-size: 2rem; color: #ffd83d; font-weight: 800; margin-top: 3px; text-shadow: 0 0 14px rgba(255,216,61,.28); }
+.piggy-progress { overflow: hidden; height: 8px; border-radius: 999px; background: rgba(255,255,255,.08); margin-top: 18px; }
+.piggy-progress > div { width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #ffcf40, #ff8d27); transition: width .3s ease; }
+
 /* ---------- Модалка пополнения ---------- */
 .modal-overlay {
   position: fixed; inset: 0; z-index: 50;

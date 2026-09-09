@@ -20,6 +20,8 @@ const client = createClient({ url, authToken });
 const EXTENDED_TRANSACTION_TYPES = [
     'promo_create', 'promo_redeem', 'promo_cancel',
     'referral_bonus', 'referral_commission',
+    'game_refund',
+    'piggybank_withdraw',
 ];
 
 /**
@@ -108,9 +110,9 @@ async function migrateTransactionsConstraint() {
                 user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
                 type            TEXT NOT NULL CHECK(type IN (
                                     'daily_bonus','case_open','sell_item','admin_adjust',
-                                    'game_bet','game_win','self_topup','stars_topup',
+                                    'game_bet','game_win','game_refund','self_topup','stars_topup',
                                     'promo_create','promo_redeem','promo_cancel',
-                                    'referral_bonus','referral_commission'
+                                    'referral_bonus','referral_commission','piggybank_withdraw'
                                 )),
                 amount_coins    INTEGER NOT NULL,
                 balance_after   INTEGER NOT NULL,
@@ -152,6 +154,11 @@ async function init() {
         await client.execute(`ALTER TABLE users ADD COLUMN leaderboard_anonymous INTEGER NOT NULL DEFAULT 1`);
     } catch (err) {
         // Колонка уже существует — ожидаемо на новых базах и при повторном запуске.
+    }
+    try {
+        await client.execute(`ALTER TABLE users ADD COLUMN piggy_bank_centistars INTEGER NOT NULL DEFAULT 0`);
+    } catch (err) {
+        // Колонка уже существует — ожидаемо при повторном запуске.
     }
     await migrateTransactionsConstraint();
 }

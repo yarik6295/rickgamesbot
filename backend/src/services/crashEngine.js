@@ -1,6 +1,7 @@
 const db = require('../db/database');
 const { generateCrashPoint } = require('./gamesService');
 const { touchCachedBalance } = require('./userService');
+const { accruePiggyBank } = require('./piggyBankService');
 const { hashServerSeed } = require('./fairnessService');
 const crypto = require('crypto');
 
@@ -36,6 +37,9 @@ const state = {
     serverSeed: crypto.randomBytes(32).toString('hex'),
     history: [],
     players: new Map(),
+    // Ставки, для которых ждём подтверждение атомарного списания из БД.
+    // Они не становятся участниками раунда, пока деньги не списаны.
+    pendingBets: new Map(),
 };
 
 // См. подробный комментарий у debit()/credit() в gamesController.js — та
@@ -59,6 +63,7 @@ async function ledgerDebit(userId, amount, type, referenceId) {
     db.run(`INSERT INTO transactions (user_id, type, amount_coins, balance_after, reference_id) VALUES (?, ?, ?, ?, ?)`,
         [userId, type, -amount, newBalance, referenceId || null])
         .catch((err) => console.error('[crashEngine] Не удалось записать транзакцию списания:', err));
+    if (type === 'game_bet') await accruePiggyBank(userId, amount);
     return newBalance;
 }
 
@@ -119,7 +124,9 @@ function crashRound(now) {
     // даже если запись логов в БД ещё не завершилась.
     const losers = [];
     for (const [userId, p] of state.players.entries()) {
-        if (!p.cashedOut) losers.push([userId, p]);
+        // Кэшаут, принятый сервером до краша, может ещё ожидать запись в
+        // Turso. Его нельзя одновременно считать проигрышем.
+        if (!p.cashedOut && !p.cashoutPending) losers.push([userId, p]);
     }
 
     const crashPoint = state.crashPoint;
@@ -164,34 +171,47 @@ async function placeBet(user, betRaw) {
     if (state.phase !== 'waiting') {
         throw { status: 409, message: 'Приём ставок закрыт — раунд уже идёт, дождитесь следующего' };
     }
-    if (state.players.has(user.id)) {
+    if (state.players.has(user.id) || state.pendingBets.has(user.id)) {
         throw { status: 409, message: 'Вы уже поставили в этом раунде' };
     }
     const bet = validateBet(betRaw, user.coins_balance);
+    const roundId = state.roundId;
 
-    // Бронируем место в раунде СИНХРОННО, до await ledgerDebit() — без
-    // этого два почти одновременных запроса на ставку от одного игрока
-    // (двойной клик, гонка сети и т.п.) оба проходили бы проверку
-    // "players.has(user.id)" выше (в обоих ещё false) и оба успевали бы
-    // списать баланс, прежде чем кто-то из них попадёт в state.players —
-    // то есть можно было списать ставку дважды, а зарегистрироваться в
-    // раунде только один раз.
-    state.players.set(user.id, {
+    // Локальная бронь защищает от двойного тапа, но в players игрок попадёт
+    // только ПОСЛЕ подтверждённого списания. Это не позволяет медленному
+    // запросу БД «доехать» уже в следующий раунд.
+    const pending = {
+        roundId,
         bet,
         cashedOut: false,
+        cashoutPending: false,
         cashoutMultiplier: null,
         payout: 0,
         username: user.username || user.first_name || 'Игрок',
-    });
+    };
+    state.pendingBets.set(user.id, pending);
 
     try {
         const newBalance = await ledgerDebit(user.id, bet, 'game_bet');
-        return { newBalance, roundId: state.roundId };
+        if (state.phase !== 'waiting' || state.roundId !== roundId) {
+            // Раунд успел закрыться, пока Turso подтверждал списание. Сразу
+            // возвращаем ставку и не добавляем игрока в другой раунд.
+            await ledgerCredit(user.id, bet, 'game_refund');
+            throw { status: 409, message: 'Приём ставок уже закрыт. Ставка возвращена на баланс.' };
+        }
+        state.players.set(user.id, pending);
+        return { newBalance, roundId };
     } catch (err) {
-        // Списание не удалось (баланса реально не хватило, хоть проверка
-        // по кэшу выше это и пропустила) — откатываем бронь места.
-        state.players.delete(user.id);
+        // Не удаляем ставку нового раунда: эта операция относится только к
+        // сохранённому выше объекту и конкретному roundId.
+        if (state.roundId === roundId && state.players.get(user.id) === pending) {
+            state.players.delete(user.id);
+        }
         throw err;
+    } finally {
+        if (state.pendingBets.get(user.id) === pending) {
+            state.pendingBets.delete(user.id);
+        }
     }
 }
 
@@ -222,7 +242,7 @@ async function cashout(user, requestedAt, requestedMultiplier) {
     const now = requestedAt || Date.now();
     const p = state.players.get(user.id);
     if (!p) throw { status: 404, message: 'Вы не участвуете в текущем раунде' };
-    if (p.cashedOut) throw { status: 409, message: 'Вы уже забрали выигрыш в этом раунде' };
+    if (p.cashedOut || p.cashoutPending) throw { status: 409, message: 'Вы уже забрали выигрыш в этом раунде' };
     if (state.phase !== 'flying') {
         throw { status: 409, message: 'Раунд ещё не начался или уже завершён' };
     }
@@ -243,12 +263,29 @@ async function cashout(user, requestedAt, requestedMultiplier) {
     if (mult >= state.crashPoint) {
         throw { status: 409, message: 'Не успели — раунд лопнул', crashPoint: state.crashPoint };
     }
-    p.cashedOut = true;
+    const roundId = state.roundId;
+    const serverSeed = state.serverSeed;
+    const crashPoint = state.crashPoint;
+    p.cashoutPending = true;
     p.cashoutMultiplier = mult;
     p.payout = Math.floor(p.bet * mult);
-    const newBalance = await ledgerCredit(user.id, p.payout, 'game_win');
-    await logRound(user.id, p.bet, p.payout, mult, 'cashout', { crashPoint: null, roundId: state.roundId }, state.serverSeed);
-    return { multiplier: mult, payout: p.payout, newBalance };
+    try {
+        const newBalance = await ledgerCredit(user.id, p.payout, 'game_win');
+        p.cashedOut = true;
+        p.cashoutPending = false;
+        await logRound(user.id, p.bet, p.payout, mult, 'cashout', { crashPoint: null, roundId }, serverSeed);
+        return { multiplier: mult, payout: p.payout, newBalance };
+    } catch (err) {
+        p.cashoutPending = false;
+        // Если раунд уже завершился, crashRound пропустил эту ожидающую
+        // выплату. Фиксируем проигрыш с исходным seed/roundId, а не данными
+        // уже начавшегося нового раунда.
+        if (state.phase !== 'flying' || state.roundId !== roundId) {
+            logRound(user.id, p.bet, 0, crashPoint, 'lose', { crashPoint, roundId }, serverSeed)
+                .catch((logErr) => console.error('[crashEngine] Не удалось записать раунд после сбоя кэшаута:', logErr));
+        }
+        throw err;
+    }
 }
 
 function getPublicState(userId) {

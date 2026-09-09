@@ -4,6 +4,7 @@ const db = require('../db/database');
 const telegramAuth = require('../middleware/telegramAuth');
 const { getOrCreateUser, invalidateUserCache, setLeaderboardAnonymous } = require('../services/userService');
 const { getReferralStats } = require('../services/referralService');
+const { getPiggyBank, withdrawPiggyBank } = require('../services/piggyBankService');
 require('dotenv').config();
 
 router.use(telegramAuth);
@@ -50,6 +51,14 @@ router.get('/referrals', async (req, res) => {
         topupPercent: 20,
         referralLink,
     });
+});
+
+router.get('/piggy-bank', async (req, res) => {
+    res.json({ piggyBank: await getPiggyBank(req.telegramUser) });
+});
+
+router.post('/piggy-bank/withdraw', async (req, res) => {
+    res.json({ success: true, ...(await withdrawPiggyBank(req.telegramUser)) });
 });
 
 /**

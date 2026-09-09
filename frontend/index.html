@@ -462,13 +462,31 @@
         </label>
       </div>
     </div>
-    <div class="surface-card p-4 mt-4">
-      <div class="flex items-center justify-between gap-3">
-        <div>
-          <h4 class="font-bold">🎟 Чеки</h4>
-          <p class="text-white/40 text-xs mt-1">Создавай чеки со своего баланса или активируй код друга.</p>
-        </div>
-      </div>
+    <div class="profile-actions-grid mt-4">
+      <button class="profile-section-link" data-tab="piggybank"><span>🐷</span><strong>Копилка</strong><small>5% с каждой ставки</small></button>
+      <button class="profile-section-link" data-tab="promos"><span>🎟</span><strong>Чеки</strong><small>Создать или активировать</small></button>
+      <button class="profile-section-link" data-tab="referrals"><span>👥</span><strong>Рефералы</strong><small>10 ⭐ + 20% пополнений</small></button>
+      <button class="profile-section-link" data-tab="history"><span>📜</span><strong>История</strong><small>Все операции</small></button>
+    </div>
+  </section>
+
+  <section id="tab-piggybank" class="tab-panel hidden">
+    <div class="tab-header"><button class="back-btn btn-back-to-profile">←</button><h2 class="section-title">Копилка</h2></div>
+    <div class="surface-card p-5 piggy-bank-card text-center">
+      <div class="text-5xl">🐷</div>
+      <p class="text-white/50 text-sm mt-3">Твой кэшбек</p>
+      <div id="piggy-bank-balance" class="piggy-bank-balance">0.00 ⭐</div>
+      <div class="piggy-progress"><div id="piggy-bank-progress"></div></div>
+      <p id="piggy-bank-hint" class="text-white/40 text-xs mt-3">Загрузка…</p>
+      <button id="btn-piggy-bank-withdraw" class="btn-primary w-full py-3 mt-4" disabled>Вывести на баланс</button>
+      <p class="text-white/30 text-[11px] mt-3">Каждая ставка в играх добавляет 5% в копилку. Кейсы не учитываются. Минимальный вывод — 30 ⭐.</p>
+    </div>
+  </section>
+
+  <section id="tab-promos" class="tab-panel hidden">
+    <div class="tab-header"><button class="back-btn btn-back-to-profile">←</button><h2 class="section-title">Чеки</h2></div>
+    <div class="surface-card p-4">
+      <p class="text-white/40 text-xs">Создавай чеки со своего баланса или активируй код друга.</p>
       <div class="grid grid-cols-2 gap-2 mt-3">
         <button id="btn-promo-create" class="btn-primary py-2.5 text-sm">Создать</button>
         <button id="btn-promo-redeem" class="btn-secondary py-2.5 text-sm">Активировать</button>
@@ -476,22 +494,20 @@
       <div class="text-white/30 text-[11px] mt-3">Активные чеки можно деактивировать — неиспользованный остаток вернётся на баланс.</div>
       <div id="promo-my-list" class="mt-3 flex flex-col gap-1.5"></div>
     </div>
-    <div class="surface-card p-4 mt-4 referral-card">
-      <div class="flex items-start justify-between gap-3">
-        <div>
-          <h4 class="font-bold">👥 Пригласи друзей</h4>
-          <p class="text-white/40 text-xs mt-1">Получи 10 ⭐ за друга и 20% от каждого его пополнения.</p>
-        </div>
-        <span class="referral-icon">🎁</span>
-      </div>
-      <div class="grid grid-cols-2 gap-2 mt-3 text-center">
-        <div class="referral-stat"><span id="referral-invited-count">0</span><small>Приглашено</small></div>
-        <div class="referral-stat"><span id="referral-commission-earned">0 ⭐</span><small>Комиссия</small></div>
-      </div>
+  </section>
+
+  <section id="tab-referrals" class="tab-panel hidden">
+    <div class="tab-header"><button class="back-btn btn-back-to-profile">←</button><h2 class="section-title">Рефералы</h2></div>
+    <div class="surface-card p-4 referral-card">
+      <div class="flex items-start justify-between gap-3"><div><h4 class="font-bold">👥 Пригласи друзей</h4><p class="text-white/40 text-xs mt-1">Получи 10 ⭐ за друга и 20% от каждого его пополнения.</p></div><span class="referral-icon">🎁</span></div>
+      <div class="grid grid-cols-2 gap-2 mt-3 text-center"><div class="referral-stat"><span id="referral-invited-count">0</span><small>Приглашено</small></div><div class="referral-stat"><span id="referral-commission-earned">0 ⭐</span><small>Комиссия</small></div></div>
       <button id="btn-copy-referral" class="btn-primary w-full py-2.5 text-sm mt-3">Скопировать ссылку</button>
       <p id="referral-link-hint" class="text-white/30 text-[11px] mt-2 text-center"></p>
     </div>
-    <h4 class="font-semibold mt-5 mb-2 text-white/70 text-sm">История транзакций</h4>
+  </section>
+
+  <section id="tab-history" class="tab-panel hidden">
+    <div class="tab-header"><button class="back-btn btn-back-to-profile">←</button><h2 class="section-title">История операций</h2></div>
     <div id="tx-list" class="flex flex-col gap-1.5"></div>
   </section>
 

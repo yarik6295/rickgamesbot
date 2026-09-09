@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS users (
     xp              INTEGER NOT NULL DEFAULT 0,
     last_free_case_at DATETIME,                       -- когда последний раз открывал бесплатный кейс (раз в 24ч)
     leaderboard_anonymous INTEGER NOT NULL DEFAULT 1, -- 1 = в топе игроков показывается как "Аноним" (по умолчанию), 0 = показывается имя
+    piggy_bank_centistars INTEGER NOT NULL DEFAULT 0, -- копилка в сотых долях ⭐; 1 ставка = 5% кэшбека
     created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -55,9 +56,9 @@ CREATE TABLE IF NOT EXISTS transactions (
     -- строками уже развёрнутых баз: новой фичи/роута ежедневного бонуса нет.
     type            TEXT NOT NULL CHECK(type IN (
                         'daily_bonus','case_open','sell_item','admin_adjust',
-                        'game_bet','game_win','self_topup','stars_topup',
+                        'game_bet','game_win','game_refund','self_topup','stars_topup',
                         'promo_create','promo_redeem','promo_cancel',
-                        'referral_bonus','referral_commission'
+                        'referral_bonus','referral_commission','piggybank_withdraw'
                     )),
     amount_coins    INTEGER NOT NULL,                 -- +начисление / -списание
     balance_after   INTEGER NOT NULL,
