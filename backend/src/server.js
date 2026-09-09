@@ -9,6 +9,17 @@ const path = require('path');
 const db = require('./db/database');
 const runCasesSeed = require('./db/seed');
 
+// БАГ-ФИКС: раньше DEV_SKIP_TELEGRAM_AUTH=true никак не проверялся при
+// старте сервера. Если эту переменную забыть выставить в false (или
+// просто не удалить .env) на проде — telegramAuth.js полностью
+// отключается, и любой запрос может представиться произвольным
+// telegram_id без какой-либо проверки initData. Падаем сразу при старте,
+// а не тихо остаёмся уязвимыми в рантайме.
+if (process.env.NODE_ENV === 'production' && process.env.DEV_SKIP_TELEGRAM_AUTH === 'true') {
+    console.error('[FATAL] DEV_SKIP_TELEGRAM_AUTH=true запрещён при NODE_ENV=production — это отключает проверку Telegram initData для всех запросов.');
+    process.exit(1);
+}
+
 async function start() {
     console.log('[db] Применяем схему...');
     await db.init();

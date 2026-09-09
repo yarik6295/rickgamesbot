@@ -326,10 +326,17 @@ function renderLeaderRow(l, extraClass = '') {
   const el = document.createElement('div');
   el.className = `leader-card ${topClass} ${extraClass}`.trim();
   const medal = l.rank === 1 ? '🥇' : l.rank === 2 ? '🥈' : l.rank === 3 ? '🥉' : l.rank;
+  // БАГ-ФИКС (потенциальный stored XSS): firstName шёл через escapeHtml,
+  // а photoUrl (из БД, в перспективе — из Telegram initData другого
+  // пользователя) вставлялся в src="${...}" сырым текстом. Кавычка в
+  // значении ломала атрибут и позволяла воткнуть произвольный HTML/JS.
+  // Сейчас источник более-менее доверенный, но фиксим на будущее: сначала
+  // валидируем схему (только http/https), а на всякий случай ещё и
+  // экранируем перед вставкой в атрибут.
   el.innerHTML = `
     <div class="leaders-row">
       <span class="leaders-rank">${medal}</span>
-      <img class="leaders-avatar" src="${leaderAvatarUrl(l)}" alt="" />
+      <img class="leaders-avatar" src="${escapeHtml(safeAvatarUrl(leaderAvatarUrl(l)))}" alt="" />
       <span class="leaders-name">${l.isYou ? 'Вы' : escapeHtml(l.firstName)}</span>
       <span class="leaders-total">${l.totalWagered.toLocaleString('ru-RU')} ⭐</span>
     </div>
@@ -341,6 +348,15 @@ function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;
+}
+
+// Только http(s) — блокирует javascript:/data:text-html и подобные схемы.
+function safeAvatarUrl(url) {
+  try {
+    const parsed = new URL(url, window.location.href);
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') return parsed.href;
+  } catch (e) { /* falls through */ }
+  return 'https://api.dicebear.com/7.x/bottts/svg?seed=player';
 }
 
 async function loadLeaders(force = false) {

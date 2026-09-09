@@ -38,4 +38,32 @@ function remove(userId, gameType) {
     store.delete(key(userId, gameType));
 }
 
-module.exports = { get, set, remove };
+/**
+ * БАГ-ФИКС (гонка в minesReveal/towersPick): контроллер узнаёт id
+ * пользователя только ПОСЛЕ `await getOrCreateUser(...)`, а до этого
+ * момента синхронно залочить сессию по userId нельзя. Если между стартом
+ * этого await и его завершением приходил второй почти параллельный
+ * запрос (двойной тап, повтор из-за таймаута), оба успевали пройти
+ * проверку "клетка ещё не открыта" и оба пушили в session.revealed —
+ * то есть за одно "нажатие" открывались 2 клетки с более высоким
+ * мультипликатором, чем допускает выбранный риск.
+ *
+ * Лочим не по userId (он ещё не известен), а по telegramUser.id — он
+ * доступен из req СИНХРОННО, до первого await. Set.has/add — синхронные
+ * операции, поэтому check-and-set здесь атомарен даже при интерливинге
+ * промисов в event loop: вторая параллельная попытка гарантированно
+ * увидит уже занятый лок.
+ */
+const locks = new Set();
+
+function tryLock(lockKey) {
+    if (locks.has(lockKey)) return false;
+    locks.add(lockKey);
+    return true;
+}
+
+function unlock(lockKey) {
+    locks.delete(lockKey);
+}
+
+module.exports = { get, set, remove, tryLock, unlock };
