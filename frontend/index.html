@@ -45,7 +45,7 @@
      и пользователь продолжает видеть старое поведение, хотя на сервере уже
      лежат новые файлы. При каждом деплое с правками фронтенда — увеличивайте
      это число (APP_VERSION ниже и во всех тегах). -->
-<link rel="stylesheet" href="css/style.css?v=13" />
+<link rel="stylesheet" href="css/style.css?v=14" />
 </head>
 <body class="bg-bg text-white min-h-screen font-sans overflow-x-hidden">
 
@@ -85,7 +85,6 @@
         <div class="game-tile-sub">Вовремя забери ставку</div>
       </div>
       <div class="game-tile game-tile-mines" data-game="mines">
-        <span class="game-badge badge-new">NEW</span>
         <div class="game-art art-mines"><div class="mines-mini-grid"><i></i><i></i><i></i><i></i><i></i><i></i><i class="mine-danger">✦</i><i></i><i></i><i></i><i></i><i></i></div><span class="art-chip">5 МИН</span></div>
         <div class="game-tile-name">MINES</div>
         <div class="game-tile-sub">Звёзды против мин</div>
@@ -101,13 +100,11 @@
         <div class="game-tile-sub">Куда упадёт шарик?</div>
       </div>
       <div class="game-tile game-tile-upgrade" data-game="upgrade">
-        <span class="game-badge badge-new">NEW</span>
         <div class="game-art art-upgrade"><div class="upgrade-from">★</div><div class="upgrade-arrow">→</div><div class="upgrade-to">✦</div><span class="art-chip">Шанс 62%</span></div>
         <div class="game-tile-name">UPGRADE</div>
         <div class="game-tile-sub">Выбери шанс — рискни подарком</div>
       </div>
       <div class="game-tile game-tile-wheel" data-game="wheel">
-        <span class="game-badge badge-new">NEW</span>
         <div class="game-art art-wheel"><div class="wheel-pointer">▼</div><div class="wheel-disc"><b>★</b></div><span class="art-chip">ВРАЩЕНИЕ</span></div>
         <div class="game-tile-name">WHEEL</div>
         <div class="game-tile-sub">Одно вращение — один результат</div>
@@ -161,19 +158,12 @@
         <label id="crash-my-bet-label" class="bet-label crash-my-bet-label" style="display:none">Ваша ставка: <span id="crash-my-bet-amount">0</span> ⭐</label>
       </div>
       <div class="bet-input-row">
-        <button id="crash-bet-half" class="crash-mult-btn">½</button>
+        <button type="button" class="crash-mult-btn" data-bet-half="crash-bet">½</button>
         <div class="bet-input-wrap">
           <input id="crash-bet" type="number" class="bet-input" value="25" min="5" step="5" />
           <button type="button" class="bet-max-btn" data-target="crash-bet">MAX</button>
         </div>
-        <button id="crash-bet-double" class="crash-mult-btn">2×</button>
-      </div>
-      <div class="crash-quick-row">
-        <button class="crash-quick-btn selected" data-amt="25">25</button>
-        <button class="crash-quick-btn" data-amt="50">50</button>
-        <button class="crash-quick-btn" data-amt="100">100</button>
-        <button class="crash-quick-btn" data-amt="250">250</button>
-        <button class="crash-quick-btn" data-amt="500">500</button>
+        <button type="button" class="crash-mult-btn" data-bet-double="crash-bet">2×</button>
       </div>
     </div>
 
@@ -208,12 +198,12 @@
     <div id="mines-setup" class="mt-4">
       <label class="bet-label">Ставка</label>
       <div class="bet-input-row mb-3">
-        <button class="bet-adj" data-adj="-10">−</button>
+        <button type="button" class="crash-mult-btn" data-bet-half="mines-bet">½</button>
         <div class="bet-input-wrap">
           <input id="mines-bet" type="number" class="bet-input" value="50" min="5" step="5" />
           <button type="button" class="bet-max-btn" data-target="mines-bet">MAX</button>
         </div>
-        <button class="bet-adj" data-adj="10">+</button>
+        <button type="button" class="crash-mult-btn" data-bet-double="mines-bet">2×</button>
       </div>
       <label class="bet-label">Количество мин</label>
       <div class="mines-count-row" id="mines-count-row">
@@ -244,12 +234,12 @@
     <div id="towers-setup" class="mt-4">
       <label class="bet-label">Ставка</label>
       <div class="bet-input-row">
-        <button class="bet-adj" data-adj="-10">−</button>
+        <button type="button" class="crash-mult-btn" data-bet-half="towers-bet">½</button>
         <div class="bet-input-wrap">
           <input id="towers-bet" type="number" class="bet-input" value="50" min="5" step="5" />
           <button type="button" class="bet-max-btn" data-target="towers-bet">MAX</button>
         </div>
-        <button class="bet-adj" data-adj="10">+</button>
+        <button type="button" class="crash-mult-btn" data-bet-double="towers-bet">2×</button>
       </div>
     </div>
 
@@ -274,12 +264,12 @@
     <div class="mt-4">
       <label class="bet-label">Ставка</label>
       <div class="bet-input-row mb-3">
-        <button class="bet-adj" data-adj="-10">−</button>
+        <button type="button" class="crash-mult-btn" data-bet-half="plinko-bet">½</button>
         <div class="bet-input-wrap">
           <input id="plinko-bet" type="number" class="bet-input" value="50" min="5" step="5" />
           <button type="button" class="bet-max-btn" data-target="plinko-bet">MAX</button>
         </div>
-        <button class="bet-adj" data-adj="10">+</button>
+        <button type="button" class="crash-mult-btn" data-bet-double="plinko-bet">2×</button>
       </div>
       <label class="bet-label">Риск</label>
       <div class="mines-count-row" id="plinko-risk-row">
@@ -332,12 +322,12 @@
     <div class="mt-4">
       <label class="bet-label">Ставка</label>
       <div id="upgrade-coins-stake" class="bet-input-row mt-2">
-        <button class="bet-adj" data-adj="-10">−</button>
+        <button type="button" class="crash-mult-btn" data-bet-half="upgrade-bet">½</button>
         <div class="bet-input-wrap">
           <input id="upgrade-bet" type="number" class="bet-input" value="50" min="5" step="5" />
           <button type="button" class="bet-max-btn" data-target="upgrade-bet">MAX</button>
         </div>
-        <button class="bet-adj" data-adj="10">+</button>
+        <button type="button" class="crash-mult-btn" data-bet-double="upgrade-bet">2×</button>
       </div>
     </div>
 
@@ -366,12 +356,12 @@
     <div class="bet-controls mt-4">
       <label class="bet-label">Ставка</label>
       <div class="bet-input-row">
-        <button class="bet-adj" data-adj="-10">−</button>
+        <button type="button" class="crash-mult-btn" data-bet-half="wheel-bet">½</button>
         <div class="bet-input-wrap">
           <input id="wheel-bet" type="number" class="bet-input" value="50" min="5" step="5" />
           <button type="button" class="bet-max-btn" data-target="wheel-bet">MAX</button>
         </div>
-        <button class="bet-adj" data-adj="10">+</button>
+        <button type="button" class="crash-mult-btn" data-bet-double="wheel-bet">2×</button>
       </div>
     </div>
 

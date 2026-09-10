@@ -64,9 +64,6 @@
       input.value = max;
       input.dispatchEvent(new Event('change', { bubbles: true }));
 
-      // если это Crash — снимаем подсветку с быстрых кнопок ставки,
-      // т.к. значение больше не соответствует ни одной из них
-      document.querySelectorAll('.crash-quick-btn').forEach((b) => b.classList.remove('selected'));
       TelegramBridge?.haptic?.('light');
     });
   });
@@ -405,20 +402,23 @@
 
   $('#btn-crash-bet').addEventListener('click', () => Crash.bet());
   $('#btn-crash-cashout').addEventListener('click', () => Crash.cashout(false));
-  $('#crash-bet-half').addEventListener('click', () => {
-    const input = $('#crash-bet');
-    input.value = Math.max(5, Math.round((Number(input.value) || 0) / 2 / 5) * 5);
+
+  // Единый контрол ставки во всех играх: сохраняем шаг 5 ⭐ и тот же
+  // безопасный максимум, что был у Crash. Так игрок не получает разные
+  // правила ввода в Mines, Towers, Plinko, Upgrade и Wheel.
+  function changeBet(targetId, multiplier) {
+    const input = document.getElementById(targetId);
+    if (!input) return;
+    const value = Number(input.value) || 5;
+    input.value = Math.min(100000, Math.max(5, Math.round((value * multiplier) / 5) * 5));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    TelegramBridge?.haptic?.('light');
+  }
+  document.querySelectorAll('[data-bet-half]').forEach((btn) => {
+    btn.addEventListener('click', () => changeBet(btn.dataset.betHalf, .5));
   });
-  $('#crash-bet-double').addEventListener('click', () => {
-    const input = $('#crash-bet');
-    input.value = Math.min(100000, Math.round((Number(input.value) || 0) * 2 / 5) * 5);
-  });
-  document.querySelectorAll('.crash-quick-btn').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      $('#crash-bet').value = btn.dataset.amt;
-      document.querySelectorAll('.crash-quick-btn').forEach((b) => b.classList.remove('selected'));
-      btn.classList.add('selected');
-    });
+  document.querySelectorAll('[data-bet-double]').forEach((btn) => {
+    btn.addEventListener('click', () => changeBet(btn.dataset.betDouble, 2));
   });
 
   /* ================================ MINES ================================ */
