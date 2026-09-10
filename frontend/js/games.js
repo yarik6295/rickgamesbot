@@ -1000,12 +1000,19 @@
 
       // Точки после каждого реального отскока. requestAnimationFrame
       // интерполирует их в плавный полёт, а дуга добавляет гравитацию.
-      let displacement = 0;
       const points = [{ x: startX, y: startY }];
       path.forEach((turn, index) => {
-        displacement += turn === 'R' ? 1 : -1;
+        // После N ходов количество правых ходов определяет конкретный
+        // промежуток между пинами. Берём центр этого промежутка из ширины
+        // РЕАЛЬНОГО ряда, а не суммируем фиксированный сдвиг: так крайние
+        // траектории всегда остаются внутри треугольника пинов.
+        const rightTurns = path.slice(0, index + 1).filter((step) => step === 'R').length;
+        const gapsInRow = index + 2;
+        const rowWidth = (index + 1) * 20; // совпадает с gap .plinko-row
+        const rowStart = startX - rowWidth / 2;
+        const gapWidth = rowWidth / (gapsInRow - 1);
         points.push({
-          x: startX + displacement * (boardWidth / (rows + 1)),
+          x: rowStart + rightTurns * gapWidth,
           y: 27 + (index + 1) * ((boardHeight - 58) / rows),
         });
       });
