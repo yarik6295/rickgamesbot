@@ -81,7 +81,7 @@ function welcomeText(firstName) {
     return [
         `👋 Привет${name}!`,
         '',
-        '*Rick Games* — мини-игры и виртуальный баланс.',
+        '*RinGames* — мини-игры и виртуальный баланс.',
         '',
         'Профиль, история операций и топ игроков теперь во вкладке «Профиль».',
         'Для самих игр используй Mini App.',
@@ -293,7 +293,7 @@ async function leaderboardText(telegramUser) {
 const ABOUT_TEXT = [
     'ℹ️ *О проекте*',
     '',
-    'Rick Games — демонстрационный проект с мини-играми и виртуальным балансом.',
+    'RinGames — демонстрационный проект с мини-играми и виртуальным балансом.',
     'Вся генерация случайных',
     'результатов происходит на сервере (provably-fair подход).',
     '',
@@ -544,7 +544,7 @@ async function handleUpdate(update) {
 async function setBotCommands() {
     await callBotApi('setMyCommands', {
         commands: [
-            { command: 'start', description: 'Запустить Rick Games' },
+            { command: 'start', description: 'Запустить RinGames' },
             { command: 'menu', description: 'Открыть меню' },
             { command: 'checks', description: 'Чеки' },
             { command: 'promo', description: 'Чеки (алиас)' },

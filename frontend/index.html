@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>Rick Games — демо (виртуальный баланс)</title>
+<title>RinGames — демо (виртуальный баланс)</title>
 
 <!-- Telegram WebApp SDK -->
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -45,7 +45,7 @@
      и пользователь продолжает видеть старое поведение, хотя на сервере уже
      лежат новые файлы. При каждом деплое с правками фронтенда — увеличивайте
      это число (APP_VERSION ниже и во всех тегах). -->
-<link rel="stylesheet" href="css/style.css?v=18" />
+<link rel="stylesheet" href="css/style.css?v=19" />
 </head>
 <body class="bg-bg text-white min-h-screen font-sans overflow-x-hidden">
 
@@ -56,7 +56,10 @@
 <!-- ============ ШАПКА ============ -->
 <header id="app-header" class="sticky top-0 z-30 backdrop-blur-md bg-bg/70 border-b border-white/5 px-4 py-3 flex items-center gap-2">
   <div class="flex-1 flex justify-center">
-    <h1 id="app-title" class="brand-logo">RICK GAMES</h1>
+    <div id="brand-plate" class="brand-plate">
+      <span class="brand-plate-icon">◆</span>
+      <h1 id="app-title" class="brand-logo">RinGames</h1>
+    </div>
   </div>
   <div id="balance-pill" class="shrink-0 flex items-center gap-1.5 bg-surface2 border border-white/10 rounded-full pl-3 pr-1.5 py-1.5 text-sm font-bold">
     <span class="text-gold">⭐</span>
@@ -292,18 +295,6 @@
 
     <div class="upgrade-dial-wrap">
       <svg id="upgrade-dial" viewBox="0 0 160 160" class="upgrade-dial">
-        <defs>
-          <!-- Нативный SVG-фильтр вместо CSS filter:blur() — на некоторых
-               WebView (в т.ч. внутри Telegram) CSS blur() на обводке SVG-круга
-               со stroke-dasharray + transform молча не применяется, хотя
-               drop-shadow на других элементах (стрелка, текст) рендерится
-               нормально. filter="url(#...)" через SVG-примитив работает
-               надёжно везде. Регион фильтра увеличен (-60%..+220%), чтобы
-               размытие не обрезалось по краю боксовой рамки элемента. -->
-          <filter id="upgrade-dial-blur" x="-60%" y="-60%" width="220%" height="220%">
-            <feGaussianBlur stdDeviation="1.2" />
-          </filter>
-        </defs>
         <circle cx="80" cy="80" r="68" class="upgrade-dial-track" />
         <circle id="upgrade-dial-lose" cx="80" cy="80" r="68" class="upgrade-dial-arc upgrade-dial-lose" />
         <circle id="upgrade-dial-win" cx="80" cy="80" r="68" class="upgrade-dial-arc upgrade-dial-win" />
