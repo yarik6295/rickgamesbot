@@ -718,6 +718,11 @@
     // мины показываются во ВСЕХ рядах, включая непройденные.
     renderTower(bombRow = null) {
       const el = $('#towers-tower');
+      const floorStatus = $('#towers-floor-status');
+      if (floorStatus) {
+        const floor = Math.min(this.currentRow + 1, this.rows);
+        floorStatus.textContent = this.active ? `ЭТАЖ ${floor} / ${this.rows}` : `11 ЭТАЖЕЙ`;
+      }
       el.innerHTML = '';
       for (let r = this.rows - 1; r >= 0; r--) {
         const row = document.createElement('div');
@@ -728,6 +733,12 @@
         if (r === this.currentRow && this.active) rowClass += ' towers-row-active';
         else if (this.active && r > this.currentRow) rowClass += ' towers-row-dim';
         row.className = rowClass;
+        const floor = document.createElement('span');
+        floor.className = 'towers-floor-number';
+        floor.textContent = r + 1;
+        row.appendChild(floor);
+        const tiles = document.createElement('div');
+        tiles.className = 'towers-row-tiles';
         for (let t = 0; t < this.tilesPerRow; t++) {
           const tile = document.createElement('button');
           tile.className = 'towers-tile';
@@ -777,8 +788,9 @@
               this.pick(t);
             });
           }
-          row.appendChild(tile);
+          tiles.appendChild(tile);
         }
+        row.appendChild(tiles);
         el.appendChild(row);
       }
     },
