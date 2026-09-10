@@ -1094,12 +1094,19 @@
       return Math.round((100 / chance) * 0.92 * 100) / 100;
     },
 
+    chanceLabel(chance) {
+      if (chance >= 65) return 'Высокий шанс';
+      if (chance >= 25) return 'Средний шанс';
+      return 'Низкий шанс';
+    },
+
     updateDial() {
       const circumference = 2 * Math.PI * 68;
       const winLen = (this.chance / 100) * circumference;
       $('#upgrade-dial-win').style.strokeDasharray = `${winLen} ${circumference - winLen}`;
       $('#upgrade-dial-lose').style.strokeDasharray = `${circumference} 0`;
       $('#upgrade-mult-display').textContent = `×${this.multiplierFor(this.chance).toFixed(2)}`;
+      $('#upgrade-status-label').textContent = this.chanceLabel(this.chance);
       $('#upgrade-chance-value').textContent = `${this.chance}%`;
       $('#upgrade-chance-slider').value = this.chance;
     },

@@ -1101,12 +1101,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .upgrade-dial-lose { stroke: #ff2e6e; opacity: .8; }
 .upgrade-dial-win { stroke: #2fe08a; filter: drop-shadow(0 0 6px rgba(47,224,138,.6)); }
 .upgrade-needle {
-  stroke: #fff; stroke-width: 3.5; stroke-linecap: round;
+  fill: #ffd83d; stroke: rgba(255,255,255,.58); stroke-width: 1;
   transform: rotate(0deg); transform-origin: 80px 80px;
   transition: transform 1.7s cubic-bezier(.14,.68,.15,1);
-  filter: drop-shadow(0 0 6px rgba(255,255,255,.6));
+  filter: drop-shadow(0 0 6px rgba(255,216,61,.8));
 }
-.upgrade-needle-hub { fill: #fff; filter: drop-shadow(0 0 6px rgba(255,255,255,.5)); }
 .upgrade-dial-center {
   position: absolute; inset: 0; display: flex; flex-direction: column;
   align-items: center; justify-content: center; pointer-events: none;
