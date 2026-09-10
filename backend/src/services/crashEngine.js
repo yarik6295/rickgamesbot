@@ -63,7 +63,10 @@ async function ledgerDebit(userId, amount, type, referenceId) {
     db.run(`INSERT INTO transactions (user_id, type, amount_coins, balance_after, reference_id) VALUES (?, ?, ?, ?, ?)`,
         [userId, type, -amount, newBalance, referenceId || null])
         .catch((err) => console.error('[crashEngine] Не удалось записать транзакцию списания:', err));
-    if (type === 'game_bet') await accruePiggyBank(userId, amount);
+    if (type === 'game_bet') {
+        accruePiggyBank(userId, amount)
+            .catch((err) => console.error('[crashEngine] Не удалось начислить копилку:', err));
+    }
     return newBalance;
 }
 

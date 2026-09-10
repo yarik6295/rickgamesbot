@@ -20,21 +20,45 @@
  */
 
 const store = new Map(); // ключ: `${userId}:${gameType}` -> объект сессии
+// Ход приходит с telegramUser.id, а не с внутренним users.id. Эта обратная
+// карта позволяет взять уже созданный раунд без дополнительного запроса к БД.
+const userIdsByTelegram = new Map();
 
 function key(userId, gameType) {
     return `${userId}:${gameType}`;
+}
+
+function telegramKey(telegramId, gameType) {
+    return `${telegramId}:${gameType}`;
 }
 
 function get(userId, gameType) {
     return store.get(key(userId, gameType));
 }
 
+function getByTelegramId(telegramId, gameType) {
+    const userId = userIdsByTelegram.get(telegramKey(telegramId, gameType));
+    return userId == null ? undefined : store.get(key(userId, gameType));
+}
+
 function set(userId, gameType, session) {
-    store.set(key(userId, gameType), session);
-    return session;
+    const previousSession = store.get(key(userId, gameType));
+    if (previousSession?.telegramId != null && previousSession.telegramId !== session.telegramId) {
+        userIdsByTelegram.delete(telegramKey(previousSession.telegramId, gameType));
+    }
+    const storedSession = { ...session, userId };
+    store.set(key(userId, gameType), storedSession);
+    if (storedSession.telegramId != null) {
+        userIdsByTelegram.set(telegramKey(storedSession.telegramId, gameType), userId);
+    }
+    return storedSession;
 }
 
 function remove(userId, gameType) {
+    const session = store.get(key(userId, gameType));
+    if (session?.telegramId != null) {
+        userIdsByTelegram.delete(telegramKey(session.telegramId, gameType));
+    }
     store.delete(key(userId, gameType));
 }
 
@@ -66,4 +90,4 @@ function unlock(lockKey) {
     locks.delete(lockKey);
 }
 
-module.exports = { get, set, remove, tryLock, unlock };
+module.exports = { get, getByTelegramId, set, remove, tryLock, unlock };

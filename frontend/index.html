@@ -125,7 +125,7 @@
   <section id="tab-game-crash" class="tab-panel hidden">
     <div class="flex items-center justify-between mb-4">
       <button class="back-btn btn-back-to-games">←</button>
-      <h2 class="font-extrabold text-lg">Aviator</h2>
+      <h2 class="font-extrabold text-lg">Crash</h2>
       <span class="w-9"></span>
     </div>
 
@@ -203,7 +203,13 @@
       <span class="w-9"></span>
     </div>
 
-    <div id="mines-grid" class="mines-grid"></div>
+    <div class="mines-game-shell">
+      <div class="mines-board-top">
+        <span>МИННОЕ ПОЛЕ</span>
+        <span id="mines-status-label">5 МИН</span>
+      </div>
+      <div id="mines-grid" class="mines-grid"></div>
+    </div>
 
     <div id="mines-setup" class="mt-4">
       <label class="bet-label">Ставка</label>

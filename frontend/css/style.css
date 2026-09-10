@@ -835,22 +835,46 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 }
 
 /* ---------- MINES ---------- */
+.mines-game-shell {
+  padding: 10px;
+  border-radius: 22px;
+  border: 1px solid rgba(0, 207, 233, .24);
+  background:
+    radial-gradient(circle at 18% 0%, rgba(0, 207, 233, .16), transparent 44%),
+    radial-gradient(circle at 88% 100%, rgba(176, 38, 255, .18), transparent 52%),
+    linear-gradient(155deg, #10182a, #0a0912);
+  box-shadow: 0 16px 32px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.05);
+}
+.mines-board-top {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1px 4px 10px; color: #83f4ff; font-size: .68rem;
+  font-weight: 900; letter-spacing: .13em;
+}
+.mines-board-top span:last-child {
+  padding: 5px 8px; border-radius: 999px; color: rgba(255,255,255,.72);
+  letter-spacing: .06em; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.06);
+}
 .mines-grid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: 8px;
+  gap: 7px;
+  padding: 9px;
+  border-radius: 16px;
+  background: linear-gradient(160deg, rgba(4,10,23,.82), rgba(18,11,35,.7));
+  border: 1px solid rgba(255,255,255,.055);
 }
 .mine-cell {
   aspect-ratio: 1/1;
-  background: linear-gradient(160deg, #1c1c32, #101018);
-  border: 1px solid rgba(255,255,255,.08);
-  border-radius: 12px;
+  background: linear-gradient(145deg, rgba(38,48,81,.92), rgba(15,18,35,.96));
+  border: 1px solid rgba(120,152,211,.18);
+  border-radius: 13px;
   font-size: 1.3rem;
   display: flex; align-items: center; justify-content: center;
-  transition: transform .1s ease, background .15s ease;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 5px 12px rgba(0,0,0,.18);
+  transition: transform .1s ease, background .15s ease, border-color .15s ease, box-shadow .15s ease;
   touch-action: manipulation;
 }
-.mine-cell:active { transform: scale(.92); }
+.mine-cell:active { transform: scale(.94); }
 /* Мгновенная реакция на тап из JS (см. renderGrid в games.js) — тот же
    фикс, что и towers-tile-pending, по той же причине (:active не всегда
    срабатывает по тапу в WebKit на iOS). */
@@ -860,8 +884,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   box-shadow: 0 0 0 2px rgba(0,246,255,.25) inset;
   pointer-events: none;
 }
-.mine-cell.mine-safe { background: linear-gradient(160deg, #123a2a, #0d1f18); border-color: rgba(47,224,138,.5); }
-.mine-cell.mine-boom { background: linear-gradient(160deg, #4a1414, #250a0a); border-color: rgba(255,46,77,.6); }
+.mine-cell.mine-safe { background: linear-gradient(145deg, #176a60, #103c42); border-color: rgba(48,244,202,.64); box-shadow: 0 0 17px rgba(18,228,190,.19), inset 0 1px 0 rgba(255,255,255,.2); }
+.mine-cell.mine-boom { background: linear-gradient(145deg, #7a2545, #321223); border-color: rgba(255,91,143,.7); box-shadow: 0 0 18px rgba(255,46,77,.22); }
 /* После успешного вывода — показываем, где были остальные мины, но
    приглушённо (это уже история, не "вы проиграли"), в отличие от .mine-boom. */
 .mine-cell.mine-revealed { background: linear-gradient(160deg, #3a1a1a, #1a0d0d); border-color: rgba(255,46,77,.28); opacity: .6; }

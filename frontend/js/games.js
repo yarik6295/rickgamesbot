@@ -491,6 +491,11 @@
 
     renderGrid() {
       const grid = $('#mines-grid');
+      const label = $('#mines-status-label');
+      if (label) {
+        const selectedCount = Number($('#mines-count-row .selected')?.dataset.count || 5);
+        label.textContent = this.active ? `ОТКРЫТО ${this.revealed.length}` : `${selectedCount} МИН`;
+      }
       grid.innerHTML = '';
       for (let i = 0; i < this.gridSize; i++) {
         const cell = document.createElement('button');
@@ -567,11 +572,15 @@
           });
           TelegramBridge.haptic('error');
           toast('Бум! Раунд проигран', 'error');
-          window.updateBalanceUI(res.newBalance);
+          // Баланс уже обновлён при старте; при проигрыше сервер не ждёт
+          // отдельное чтение БД только ради неизменившегося числа.
+          if (Number.isFinite(res.newBalance)) window.updateBalanceUI(res.newBalance);
           this.endRound();
           return;
         }
         this.revealed = res.revealed;
+        const label = $('#mines-status-label');
+        if (label) label.textContent = `ОТКРЫТО ${this.revealed.length}`;
         cell.classList.add('mine-safe');
         cell.textContent = '💎';
         $('#mines-mult').textContent = res.multiplier.toFixed(2);
@@ -616,10 +625,11 @@
   $('#btn-mines-start').addEventListener('click', () => Mines.start());
   $('#btn-mines-cashout').addEventListener('click', () => Mines.cashout());
   document.querySelectorAll('#mines-count-row .mine-count-btn').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('#mines-count-row .mine-count-btn').forEach((b) => b.classList.remove('selected'));
-      btn.classList.add('selected');
-    });
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#mines-count-row .mine-count-btn').forEach((b) => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        Mines.renderGrid();
+      });
   });
   Mines.renderGrid();
 
@@ -836,7 +846,7 @@
           this.renderTower({ row: this.currentRow, bombs: res.layout[this.currentRow] });
           TelegramBridge.haptic('error');
           toast('Это была бомба! Раунд проигран', 'error');
-          window.updateBalanceUI(res.newBalance);
+          if (Number.isFinite(res.newBalance)) window.updateBalanceUI(res.newBalance);
           this.endRound();
           return;
         }

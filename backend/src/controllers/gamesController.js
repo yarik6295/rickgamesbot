@@ -87,7 +87,17 @@ async function debit(userId, amount, type, referenceId = null, executor = db) {
     } else {
         await logInsert;
     }
-    if (type === 'game_bet') await accruePiggyBank(userId, amount, executor);
+    if (type === 'game_bet') {
+        const piggyInsert = accruePiggyBank(userId, amount, executor);
+        // В обычном ходе это независимая запись: она не должна добавлять
+        // ещё один сетевой round-trip к первому тапу. В транзакции, напротив,
+        // обязательно ждём её до коммита.
+        if (executor === db) {
+            piggyInsert.catch((err) => console.error('[piggy-bank] Не удалось начислить накопление:', err));
+        } else {
+            await piggyInsert;
+        }
+    }
     return newBalance;
 }
 
@@ -200,7 +210,7 @@ async function minesStart(req, res) {
         // гонка (двойной клик/параллельный запрос мог списать ставку дважды
         // за один раунд, пока идёт поход в БД за списанием) актуальна и тут.
         activeRounds.set(user.id, 'mines', {
-            bet, gridSize, mineCount, mines, revealed: [], serverSeed,
+            telegramId: req.telegramUser.id, bet, gridSize, mineCount, mines, revealed: [], serverSeed,
         });
 
         let newBalance;
@@ -234,9 +244,13 @@ async function minesReveal(req, res) {
         return res.status(429).json({ error: 'Слишком быстро, подожди предыдущий ход' });
     }
     try {
-        const user = await getOrCreateUser(req.telegramUser);
-        const session = activeRounds.get(user.id, 'mines');
+        let session = activeRounds.getByTelegramId(req.telegramUser.id, 'mines');
+        if (!session) {
+            const user = await getOrCreateUser(req.telegramUser);
+            session = activeRounds.get(user.id, 'mines');
+        }
         if (!session) throw { status: 404, message: 'Нет активного раунда Mines' };
+        const userId = session.userId;
 
         const tile = Number(req.body.tile);
         if (!Number.isInteger(tile) || tile < 0 || tile >= session.gridSize) {
@@ -245,19 +259,18 @@ async function minesReveal(req, res) {
         if (session.revealed.includes(tile)) throw { status: 400, message: 'Клетка уже открыта' };
 
         if (session.mines.includes(tile)) {
-            activeRounds.remove(user.id, 'mines');
+            activeRounds.remove(userId, 'mines');
             const revealedAtLoss = session.revealed;
-            db.run(`DELETE FROM active_rounds WHERE user_id = ? AND game_type = 'mines'`, [user.id])
+            db.run(`DELETE FROM active_rounds WHERE user_id = ? AND game_type = 'mines'`, [userId])
                 .catch((err) => console.error('[mines] Не удалось удалить активный раунд:', err));
-            logRound(user.id, 'mines', session.bet, 0, 0, 'lose',
+            logRound(userId, 'mines', session.bet, 0, 0, 'lose',
                 { gridSize: session.gridSize, mineCount: session.mineCount, mines: session.mines, revealed: revealedAtLoss },
                 session.serverSeed).catch((err) => console.error('[mines] Не удалось записать проигрышный раунд:', err));
             // Ставка уже списана на старте, но за время активного раунда
             // баланс мог измениться в другом пути (Stars, промокод). Не
             // возвращаем TTL-кэш как источник истины: на финальном ответе
             // читаем актуальное значение из БД для согласованного UI.
-            const freshUser = await getUserById(user.id, db);
-            return res.json({ success: true, hit: true, mines: session.mines, newBalance: freshUser.coins_balance });
+            return res.json({ success: true, hit: true, mines: session.mines });
         }
 
         session.revealed.push(tile);
@@ -265,7 +278,7 @@ async function minesReveal(req, res) {
         const potentialPayout = Math.floor(session.bet * multiplier);
 
         db.run(`UPDATE active_rounds SET revealed = ? WHERE user_id = ? AND game_type = 'mines'`,
-            [JSON.stringify(session.revealed), user.id])
+            [JSON.stringify(session.revealed), userId])
             .catch((err) => console.error('[mines] Не удалось синхронизировать активный раунд:', err));
 
         res.json({ success: true, hit: false, revealed: session.revealed, multiplier, potentialPayout });
@@ -298,7 +311,7 @@ async function minesStatus(req, res) {
     const hidden = JSON.parse(round.hidden_state);
     const revealed = JSON.parse(round.revealed);
     activeRounds.set(user.id, 'mines', {
-        bet: round.bet_coins, gridSize: config.gridSize, mineCount: config.mineCount,
+        telegramId: req.telegramUser.id, bet: round.bet_coins, gridSize: config.gridSize, mineCount: config.mineCount,
         mines: hidden.mines, revealed, serverSeed: round.server_seed,
     });
 
@@ -393,7 +406,7 @@ async function towersStart(req, res) {
         // слот раунда до похода в БД за списанием, чтобы исключить двойное
         // списание при параллельных запросах.
         activeRounds.set(user.id, 'towers', {
-            bet, rows: TOWERS_ROWS, tilesPerRow: TOWERS_TILES_PER_ROW, bombsPerRow: TOWERS_BOMBS_PER_ROW,
+            telegramId: req.telegramUser.id, bet, rows: TOWERS_ROWS, tilesPerRow: TOWERS_TILES_PER_ROW, bombsPerRow: TOWERS_BOMBS_PER_ROW,
             layout, revealed: [], serverSeed,
         });
 
@@ -424,9 +437,13 @@ async function towersPick(req, res) {
         return res.status(429).json({ error: 'Слишком быстро, подожди предыдущий ход' });
     }
     try {
-        const user = await getOrCreateUser(req.telegramUser);
-        const session = activeRounds.get(user.id, 'towers');
+        let session = activeRounds.getByTelegramId(req.telegramUser.id, 'towers');
+        if (!session) {
+            const user = await getOrCreateUser(req.telegramUser);
+            session = activeRounds.get(user.id, 'towers');
+        }
         if (!session) throw { status: 404, message: 'Нет активного раунда Towers' };
+        const userId = session.userId;
 
         const currentRow = session.revealed.length;
         if (currentRow >= session.rows) throw { status: 400, message: 'Башня уже пройдена целиком' };
@@ -437,18 +454,17 @@ async function towersPick(req, res) {
         }
 
         if (session.layout[currentRow].includes(tile)) {
-            activeRounds.remove(user.id, 'towers');
+            activeRounds.remove(userId, 'towers');
             const revealedAtLoss = session.revealed;
-            db.run(`DELETE FROM active_rounds WHERE user_id = ? AND game_type = 'towers'`, [user.id])
+            db.run(`DELETE FROM active_rounds WHERE user_id = ? AND game_type = 'towers'`, [userId])
                 .catch((err) => console.error('[towers] Не удалось удалить активный раунд:', err));
-            logRound(user.id, 'towers', session.bet, 0, 0, 'lose',
+            logRound(userId, 'towers', session.bet, 0, 0, 'lose',
                 { rows: session.rows, tilesPerRow: session.tilesPerRow, bombsPerRow: session.bombsPerRow, layout: session.layout, revealed: revealedAtLoss },
                 session.serverSeed).catch((err) => console.error('[towers] Не удалось записать проигрышный раунд:', err));
             // Как и в Mines: за время раунда баланс мог измениться другим
             // разрешённым действием. Финальный ответ читает БД, а не TTL-кэш,
             // чтобы интерфейс не откатился к устаревшему числу.
-            const freshUser = await getUserById(user.id, db);
-            return res.json({ success: true, hit: true, layout: session.layout, newBalance: freshUser.coins_balance });
+            return res.json({ success: true, hit: true, layout: session.layout });
         }
 
         session.revealed.push(tile);
@@ -458,18 +474,18 @@ async function towersPick(req, res) {
         const completed = session.revealed.length >= session.rows;
 
         if (completed) {
-            activeRounds.remove(user.id, 'towers');
-            const newBalance = await credit(user.id, potentialPayout, 'game_win');
-            db.run(`DELETE FROM active_rounds WHERE user_id = ? AND game_type = 'towers'`, [user.id])
+            activeRounds.remove(userId, 'towers');
+            const newBalance = await credit(userId, potentialPayout, 'game_win');
+            db.run(`DELETE FROM active_rounds WHERE user_id = ? AND game_type = 'towers'`, [userId])
                 .catch((err) => console.error('[towers] Не удалось удалить активный раунд:', err));
-            logRound(user.id, 'towers', session.bet, potentialPayout, multiplier, 'win',
+            logRound(userId, 'towers', session.bet, potentialPayout, multiplier, 'win',
                 { rows: session.rows, tilesPerRow: session.tilesPerRow, bombsPerRow: session.bombsPerRow, revealed: session.revealed },
                 session.serverSeed).catch((err) => console.error('[towers] Не удалось записать раунд:', err));
             return res.json({ success: true, hit: false, completed: true, revealed: session.revealed, bombPositions, multiplier, payout: potentialPayout, newBalance });
         }
 
         db.run(`UPDATE active_rounds SET revealed = ? WHERE user_id = ? AND game_type = 'towers'`,
-            [JSON.stringify(session.revealed), user.id])
+            [JSON.stringify(session.revealed), userId])
             .catch((err) => console.error('[towers] Не удалось синхронизировать активный раунд:', err));
 
         res.json({ success: true, hit: false, completed: false, revealed: session.revealed, bombPositions, multiplier, potentialPayout });
@@ -502,7 +518,7 @@ async function towersStatus(req, res) {
     const hidden = JSON.parse(round.hidden_state);
     const revealed = JSON.parse(round.revealed);
     activeRounds.set(user.id, 'towers', {
-        bet: round.bet_coins, rows: config.rows, tilesPerRow: config.tilesPerRow, bombsPerRow: config.bombsPerRow,
+        telegramId: req.telegramUser.id, bet: round.bet_coins, rows: config.rows, tilesPerRow: config.tilesPerRow, bombsPerRow: config.bombsPerRow,
         layout: hidden.layout, revealed, serverSeed: round.server_seed,
     });
 
