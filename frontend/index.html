@@ -45,7 +45,7 @@
      и пользователь продолжает видеть старое поведение, хотя на сервере уже
      лежат новые файлы. При каждом деплое с правками фронтенда — увеличивайте
      это число (APP_VERSION ниже и во всех тегах). -->
-<link rel="stylesheet" href="css/style.css?v=14" />
+<link rel="stylesheet" href="css/style.css?v=15" />
 </head>
 <body class="bg-bg text-white min-h-screen font-sans overflow-x-hidden">
 
@@ -54,7 +54,7 @@
 <div class="fixed inset-0 pointer-events-none bg-gradient-radial"></div>
 
 <!-- ============ ШАПКА ============ -->
-<header class="sticky top-0 z-30 backdrop-blur-md bg-bg/70 border-b border-white/5 px-4 py-3 flex items-center gap-2">
+<header id="app-header" class="sticky top-0 z-30 backdrop-blur-md bg-bg/70 border-b border-white/5 px-4 py-3 flex items-center gap-2">
   <div class="flex-1 flex justify-center">
     <h1 id="app-title" class="brand-logo">RICK GAMES</h1>
   </div>
@@ -114,10 +114,10 @@
 
   <!-- ============ ЭКРАН: CRASH ============ -->
   <section id="tab-game-crash" class="tab-panel hidden">
-    <div class="flex items-center justify-between mb-4">
+    <div class="mini-game-header">
       <button class="back-btn btn-back-to-games">←</button>
       <h2 class="font-extrabold text-lg">Crash</h2>
-      <span class="w-9"></span>
+      <div class="mini-game-balance-slot"></div>
     </div>
 
     <!-- История последних раундов — общая для всех игроков -->
@@ -181,10 +181,10 @@
 
   <!-- ============ ЭКРАН: MINES ============ -->
   <section id="tab-game-mines" class="tab-panel hidden">
-    <div class="flex items-center justify-between mb-4">
+    <div class="mini-game-header">
       <button class="back-btn btn-back-to-games">←</button>
       <h2 class="font-extrabold text-lg">Mines</h2>
-      <span class="w-9"></span>
+      <div class="mini-game-balance-slot"></div>
     </div>
 
     <div class="mines-game-shell">
@@ -220,10 +220,10 @@
 
   <!-- ============ ЭКРАН: TOWERS ============ -->
   <section id="tab-game-towers" class="tab-panel hidden">
-    <div class="flex items-center justify-between mb-4">
+    <div class="mini-game-header">
       <button class="back-btn btn-back-to-games">←</button>
       <h2 class="font-extrabold text-lg">Towers</h2>
-      <span class="w-9"></span>
+      <div class="mini-game-balance-slot"></div>
     </div>
 
     <div class="towers-game-shell">
@@ -249,10 +249,10 @@
 
   <!-- ============ ЭКРАН: PLINKO ============ -->
   <section id="tab-game-plinko" class="tab-panel hidden">
-    <div class="flex items-center justify-between mb-4">
+    <div class="mini-game-header">
       <button class="back-btn btn-back-to-games">←</button>
       <h2 class="font-extrabold text-lg">Plinko</h2>
-      <span class="w-9"></span>
+      <div class="mini-game-balance-slot"></div>
     </div>
 
     <div class="plinko-game-shell">
@@ -284,10 +284,10 @@
 
   <!-- ============ ЭКРАН: UPGRADE ============ -->
   <section id="tab-game-upgrade" class="tab-panel hidden">
-    <div class="flex items-center justify-between mb-4">
+    <div class="mini-game-header">
       <button class="back-btn btn-back-to-games">←</button>
       <h2 class="font-extrabold text-lg">Upgrade</h2>
-      <span class="w-9"></span>
+      <div class="mini-game-balance-slot"></div>
     </div>
 
     <div class="upgrade-dial-wrap">
@@ -341,10 +341,10 @@
 
   <!-- ============ ЭКРАН: WHEEL ============ -->
   <section id="tab-game-wheel" class="tab-panel hidden">
-    <div class="flex items-center justify-between mb-4">
+    <div class="mini-game-header">
       <button class="back-btn btn-back-to-games">←</button>
       <h2 class="font-extrabold text-lg">Wheel</h2>
-      <span class="w-9"></span>
+      <div class="mini-game-balance-slot"></div>
     </div>
 
     <div class="wheel-wrap">

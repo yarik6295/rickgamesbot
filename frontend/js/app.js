@@ -53,6 +53,16 @@ function switchTab(tabName) {
   document.getElementById(`tab-${tabName}`).classList.remove('hidden');
   document.querySelector(`.nav-btn[data-tab="${tabName}"]`)?.classList.add('active');
 
+  // В мини-играх баланс нужен рядом с названием самой игры, а брендовая
+  // шапка не занимает полезную высоту. На остальных экранах возвращаем
+  // плашку в обычную верхнюю шапку.
+  const isMiniGame = tabName.startsWith('game-');
+  document.body.classList.toggle('mini-game-active', isMiniGame);
+  const balancePill = $('#balance-pill');
+  const balanceSlot = document.querySelector(`#tab-${tabName} .mini-game-balance-slot`);
+  if (isMiniGame && balanceSlot) balanceSlot.appendChild(balancePill);
+  else $('#app-header').appendChild(balancePill);
+
   if (tabName === 'profile') loadProfile();
   if (tabName === 'leaders') loadLeaders();
   if (tabName === 'promos') loadMyPromos();

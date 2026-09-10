@@ -467,6 +467,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 /* ---------- Разделы профиля и копилка ---------- */
 .tab-header { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
 .tab-header .section-title { margin: 0; }
+.mini-game-header { display:flex; align-items:center; gap:12px; min-height:42px; margin-bottom:12px; }
+.mini-game-header h2 { flex:1; margin:0; font-weight:900; letter-spacing:-.02em; }
+.mini-game-balance-slot { display:flex; align-items:center; min-height:34px; }
+.mini-game-active #app-header { display:none; }
+.mini-game-active main { padding-top:12px; }
+.mini-game-header #balance-pill { padding-top:6px; padding-bottom:6px; font-size:.82rem; }
+.mini-game-header #btn-topup-plus { width:24px; height:24px; font-size:.72rem; }
 .profile-identity-card {
   position: relative;
   overflow: hidden;
