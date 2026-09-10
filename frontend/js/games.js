@@ -940,6 +940,10 @@
       for (let r = 0; r < rows; r++) {
         const rowEl = document.createElement('div');
         rowEl.className = 'plinko-row';
+        // Геометрия рядов совпадает с animateBall(): пины раскрываются от
+        // вершины к 84% ширины доски, поэтому крайние пути и корзины
+        // визуально соответствуют друг другу.
+        rowEl.style.width = `${(r / rows) * 84}%`;
         for (let p = 0; p <= r; p++) {
           const peg = document.createElement('span');
           peg.className = 'plinko-peg';
@@ -1008,7 +1012,11 @@
         // траектории всегда остаются внутри треугольника пинов.
         const rightTurns = path.slice(0, index + 1).filter((step) => step === 'R').length;
         const gapsInRow = index + 2;
-        const rowWidth = (index + 1) * 20; // совпадает с gap .plinko-row
+        // Ряды равномерно раскрываются почти на всю ширину доски. Это даёт
+        // крайним траекториям реально дойти до крайних корзин (×13/×29),
+        // не вылетая за стенки пирамиды.
+        const finalSpread = boardWidth * 0.84;
+        const rowWidth = finalSpread * ((index + 1) / rows);
         const rowStart = startX - rowWidth / 2;
         const gapWidth = rowWidth / (gapsInRow - 1);
         points.push({

@@ -932,7 +932,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   overflow: hidden;
 }
 .plinko-board::before { content: ''; position: absolute; inset: 0; opacity: .34; background-image: linear-gradient(rgba(0,246,255,.06) 1px, transparent 1px), linear-gradient(90deg, rgba(0,246,255,.06) 1px, transparent 1px); background-size: 22px 22px; mask-image: linear-gradient(to bottom, #000, transparent); }
-.plinko-row { position: relative; display: flex; justify-content: center; gap: 20px; margin-bottom: 19px; }
+.plinko-row { position: relative; display: flex; justify-content: space-between; margin: 0 auto 19px; }
 .plinko-peg {
   width: 8px; height: 8px; border-radius: 50%;
   background: radial-gradient(circle at 35% 30%, #fff, #78f3ff 44%, #27778d 75%);
