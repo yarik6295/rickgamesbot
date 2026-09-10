@@ -987,47 +987,53 @@
     animateBall(path, bucketIndex, done) {
       const ball = $('#plinko-ball');
       const board = $('#plinko-board');
+      const boardRect = board.getBoundingClientRect();
       const boardWidth = board.clientWidth || 300;
+      const boardHeight = board.clientHeight || 238;
       const rows = path.length;
-      let x = boardWidth / 2;
-      let step = 0;
+      const startX = boardWidth / 2;
+      const startY = 5;
       ball.style.opacity = '1';
-      ball.style.left = x + 'px';
-      ball.style.top = '0px';
+      ball.style.left = startX + 'px';
+      ball.style.top = startY + 'px';
       ball.classList.remove('plinko-ball-landed');
 
-      // Ускорение "под гравитацией": ранние шаги медленнее, поздние быстрее.
-      const delayForStep = (s) => Math.round(155 - (s / rows) * 65);
+      // Точки после каждого реального отскока. requestAnimationFrame
+      // интерполирует их в плавный полёт, а дуга добавляет гравитацию.
+      let displacement = 0;
+      const points = [{ x: startX, y: startY }];
+      path.forEach((turn, index) => {
+        displacement += turn === 'R' ? 1 : -1;
+        points.push({
+          x: startX + displacement * (boardWidth / (rows + 1)),
+          y: 27 + (index + 1) * ((boardHeight - 58) / rows),
+        });
+      });
+      const target = document.querySelector(`.plinko-bucket[data-idx="${bucketIndex}"]`);
+      const targetRect = target?.getBoundingClientRect();
+      points.push({
+        x: targetRect ? targetRect.left - boardRect.left + targetRect.width / 2 : points[points.length - 1].x,
+        y: boardHeight - 6,
+      });
 
-      const step_ = () => {
-        if (step >= rows) {
-          // БАГ (исправлено): последняя x-координата раньше бралась из
-          // накопленной суммы случайных шагов по формуле
-          // boardWidth/(rows*2.4), которая никак не связана с реальной
-          // пиксельной раскладкой корзин ниже (flex: 1 + gap). Из-за этого
-          // шарик визуально часто останавливался не над той корзиной,
-          // что подсвечивалась как выигрышная. Теперь на последнем шаге
-          // довводим шарик точно к центру настоящей выигрышной корзины.
-          const targetBucket = document.querySelector(`.plinko-bucket[data-idx="${bucketIndex}"]`);
-          if (targetBucket) {
-            const boardRect = board.getBoundingClientRect();
-            const bucketRect = targetBucket.getBoundingClientRect();
-            x = bucketRect.left - boardRect.left + bucketRect.width / 2;
-          }
-          ball.style.left = x + 'px';
-          ball.style.top = '100%';
-          ball.classList.add('plinko-ball-landed');
-          setTimeout(done, 380);
-          return;
-        }
-        const dir = path[step] === 'R' ? 1 : -1;
-        x += dir * (boardWidth / (rows * 2.4));
-        ball.style.left = x + 'px';
-        ball.style.top = `${((step + 1) / rows) * 100}%`;
-        step++;
-        setTimeout(step_, delayForStep(step));
+      const startedAt = performance.now();
+      const duration = 1500;
+      const frame = (now) => {
+        const progress = Math.min(1, (now - startedAt) / duration);
+        // В начале движение спокойнее, к низу доски ускоряется как при падении.
+        const scaled = Math.pow(progress, 1.18) * (points.length - 1);
+        const index = Math.min(points.length - 2, Math.floor(scaled));
+        const local = scaled - index;
+        const from = points[index];
+        const to = points[index + 1];
+        const bounce = Math.sin(local * Math.PI) * (index === points.length - 2 ? 2 : 8);
+        ball.style.left = `${from.x + (to.x - from.x) * local}px`;
+        ball.style.top = `${from.y + (to.y - from.y) * local - bounce}px`;
+        if (progress < 1) return requestAnimationFrame(frame);
+        ball.classList.add('plinko-ball-landed');
+        setTimeout(done, 380);
       };
-      step_();
+      requestAnimationFrame(frame);
     },
   };
 
