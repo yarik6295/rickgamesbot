@@ -556,15 +556,18 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   flex-direction: column;
   justify-content: flex-end;
   overflow: hidden;
-  border: 1px solid rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.1);
+  box-shadow: 0 10px 20px rgba(0,0,0,.16), inset 0 1px 0 rgba(255,255,255,.06);
+  transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease;
 }
 .game-tile:active { transform: scale(.97); }
-.game-tile-crash  { background: radial-gradient(circle at 70% 20%, #2a2450, #12121f 70%); }
-.game-tile-mines  { background: radial-gradient(circle at 70% 20%, #17324a, #12121f 70%); }
-.game-tile-towers { background: radial-gradient(circle at 70% 20%, #3a2a12, #12121f 70%); }
-.game-tile-plinko { background: radial-gradient(circle at 70% 20%, #401a3a, #12121f 70%); }
-.game-tile-upgrade { background: radial-gradient(circle at 70% 20%, #123322, #12121f 70%); }
-.game-tile-wheel   { background: radial-gradient(circle at 70% 20%, #3a1230, #12121f 70%); }
+.game-tile:hover { border-color: rgba(255,255,255,.2); box-shadow: 0 14px 28px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.1); }
+.game-tile-crash  { background: radial-gradient(circle at 76% 14%, rgba(0,246,255,.34), transparent 30%), radial-gradient(circle at 20% 100%, rgba(176,38,255,.28), #10101d 72%); }
+.game-tile-mines  { background: radial-gradient(circle at 76% 14%, rgba(0,246,255,.27), transparent 31%), radial-gradient(circle at 20% 100%, rgba(33,82,133,.3), #10101d 72%); }
+.game-tile-towers { background: radial-gradient(circle at 76% 14%, rgba(214,130,255,.3), transparent 31%), radial-gradient(circle at 20% 100%, rgba(91,44,146,.33), #10101d 72%); }
+.game-tile-plinko { background: radial-gradient(circle at 76% 14%, rgba(255,209,67,.25), transparent 31%), radial-gradient(circle at 20% 100%, rgba(176,38,255,.31), #10101d 72%); }
+.game-tile-upgrade { background: radial-gradient(circle at 76% 14%, rgba(47,224,138,.25), transparent 31%), radial-gradient(circle at 20% 100%, rgba(0,131,119,.27), #10101d 72%); }
+.game-tile-wheel   { background: radial-gradient(circle at 76% 14%, rgba(255,46,136,.28), transparent 31%), radial-gradient(circle at 20% 100%, rgba(112,45,179,.32), #10101d 72%); }
 .game-tile-icon { font-size: 2.4rem; margin-bottom: 4px; filter: drop-shadow(0 0 10px rgba(255,255,255,.25)); }
 .game-tile-name { font-weight: 900; font-size: 1.15rem; letter-spacing: -0.02em; font-style: italic; }
 .game-tile-sub { font-size: .7rem; color: rgba(255,255,255,.5); font-weight: 600; }
@@ -583,11 +586,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 }
 .bet-adj {
   width: 38px; height: 38px; border-radius: 12px;
-  background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12);
+  background: linear-gradient(145deg, rgba(255,255,255,.1), rgba(255,255,255,.035)); border: 1px solid rgba(255,255,255,.14);
   font-weight: 800; font-size: 1.1rem; flex-shrink: 0;
 }
 .bet-input {
-  flex: 1; background: #12121f; border: 1px solid rgba(255,255,255,.12);
+  flex: 1; background: linear-gradient(145deg, #171625, #10101a); border: 1px solid rgba(255,255,255,.12);
   border-radius: 12px; padding: .6rem .8rem; font-weight: 700; text-align: center;
   color: #fff; font-size: 1rem;
 }
@@ -660,10 +663,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .crash-stage {
   position: relative;
   height: 260px;
-  background: radial-gradient(circle at 50% 100%, rgba(176,38,255,.18), #0c0c16 70%);
-  border: 1px solid rgba(255,255,255,.08);
-  border-radius: 18px;
+  background: radial-gradient(ellipse at 50% 108%, rgba(176,38,255,.42), transparent 56%), radial-gradient(circle at 78% 13%, rgba(0,246,255,.2), transparent 27%), #090914;
+  border: 1px solid rgba(176,38,255,.34);
+  border-radius: 22px;
   overflow: hidden;
+  box-shadow: 0 16px 30px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.08);
 }
 .crash-stage::before {
   /* тонкая сетка фоном, как в реальных crash-играх */
@@ -675,6 +679,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   background-size: 28px 28px;
   pointer-events: none;
 }
+.crash-stage::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(circle at 18% 24%, rgba(255,255,255,.8) 0 1px, transparent 1.5px), radial-gradient(circle at 84% 39%, rgba(0,246,255,.85) 0 1px, transparent 1.5px), radial-gradient(circle at 65% 18%, rgba(214,161,255,.75) 0 1px, transparent 1.5px); opacity: .75; animation: aviatorStars 3.6s ease-in-out infinite alternate; }
+@keyframes aviatorStars { from { opacity: .34; transform: translateY(0); } to { opacity: .85; transform: translateY(4px); } }
 .crash-top-row {
   position: absolute; top: 10px; left: 10px; right: 10px; z-index: 3;
   display: flex; align-items: center; justify-content: space-between;
@@ -682,7 +688,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .crash-live-badge {
   display: inline-flex; align-items: center; gap: 5px;
   font-size: .62rem; font-weight: 800; letter-spacing: .04em;
-  color: #fff; background: rgba(255,46,77,.85);
+  color: #fff; background: linear-gradient(135deg, #ff2e88, #8e39df);
   padding: 4px 9px; border-radius: 999px;
   box-shadow: 0 0 10px rgba(255,46,77,.5);
 }
@@ -693,7 +699,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 @keyframes crashLivePulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
 .crash-players-badge {
   font-size: .68rem; font-weight: 700; color: rgba(255,255,255,.7);
-  background: rgba(0,0,0,.35); padding: 4px 9px; border-radius: 999px;
+  background: rgba(11,9,25,.62); padding: 4px 9px; border-radius: 999px;
   border: 1px solid rgba(255,255,255,.1);
 }
 .crash-canvas {
@@ -707,18 +713,18 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   pointer-events: none;
 }
 .crash-multiplier {
-  font-size: 2.5rem; font-weight: 900; font-style: italic;
-  color: #00f6ff; text-shadow: 0 0 20px rgba(0,246,255,.6);
+  font-size: 2.7rem; font-weight: 900; font-style: italic; letter-spacing: -.06em;
+  color: #fff; text-shadow: 0 0 8px rgba(255,255,255,.35), 0 0 24px rgba(0,246,255,.68);
   transition: color .2s ease;
 }
 .crash-multiplier.crash-busted { color: #ff2e88; text-shadow: 0 0 20px rgba(255,46,136,.7); }
-.crash-status-label { font-size: .78rem; color: rgba(255,255,255,.55); font-weight: 600; margin-top: 4px; text-align: center; padding: 0 12px; }
+.crash-status-label { font-size: .68rem; color: rgba(255,255,255,.63); font-weight: 800; letter-spacing: .08em; text-transform: uppercase; margin-top: 5px; text-align: center; padding: 0 12px; }
 
 /* ---------- Ракета: неподвижна в центре сцены, вращается,
    вокруг неё потоки воздуха создают ощущение полёта вверх ---------- */
 .crash-rocket-zone {
   position: absolute; left: 50%; top: 72%; transform: translate(-50%, -50%);
-  z-index: 2; width: 150px; height: 150px;
+  z-index: 2; width: 156px; height: 156px;
   display: flex; align-items: center; justify-content: center;
   pointer-events: none;
 }
@@ -738,8 +744,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
    вправо-вверх примерно на 45°), а не строго вертикально. -45deg
    компенсирует этот угол, чтобы ракета визуально стояла носом точно вверх. */
 .crash-rocket {
-  position: relative; font-size: 3.8rem; z-index: 2;
-  filter: drop-shadow(0 0 10px rgba(255,150,50,.6));
+  position: relative; font-size: 4.05rem; z-index: 2;
+  filter: drop-shadow(0 0 10px rgba(255,150,50,.72)) drop-shadow(0 0 22px rgba(176,38,255,.38));
   transform: rotate(-46deg);
   animation: rocketIdle 2.6s ease-in-out infinite;
 }
@@ -808,7 +814,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   100% { bottom: 4%;  height: 26px; opacity: 0; }
 }
 
-.crash-my-bet-label { color: #2fe08a !important; }
+.crash-my-bet-label { color: #b895ff !important; }
 .crash-mult-btn {
   width: 44px; height: 38px; border-radius: 12px; flex-shrink: 0;
   background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12);
@@ -820,7 +826,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   flex: 1; padding: .5rem 0; border-radius: 10px; font-weight: 700; font-size: .78rem;
   background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1); color: #fff;
 }
-.crash-quick-btn.selected { border-color: #00f6ff; background: rgba(0,246,255,.1); box-shadow: 0 0 10px rgba(0,246,255,.2); }
+.crash-quick-btn.selected { border-color: #b026ff; background: linear-gradient(135deg, rgba(176,38,255,.24), rgba(0,246,255,.12)); box-shadow: 0 0 12px rgba(176,38,255,.26); }
+.crash-bet-button { background: linear-gradient(105deg, #00cfe9, #7552ee 52%, #b026ff); box-shadow: 0 10px 22px rgba(97,50,222,.34); }
+.crash-bet-button:disabled { background: linear-gradient(105deg, #1a2137, #292143); color: rgba(255,255,255,.45); box-shadow: none; }
 .crash-auto-suffix {
   width: 38px; height: 38px; display: flex; align-items: center; justify-content: center;
   color: rgba(255,255,255,.5); font-weight: 800; flex-shrink: 0;
