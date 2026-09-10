@@ -1099,8 +1099,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .upgrade-dial { width: 100%; height: 100%; overflow: visible; }
 .upgrade-dial-track { fill: none; stroke: rgba(255,255,255,.07); stroke-width: 14; }
 .upgrade-dial-arc { fill: none; stroke-width: 14; stroke-linecap: butt; transform: rotate(-90deg); transform-origin: 80px 80px; }
-.upgrade-dial-lose { stroke: #ff2e6e; opacity: .8; filter: blur(2px); }
-.upgrade-dial-win { stroke: #2fe08a; filter: blur(2px) drop-shadow(0 0 6px rgba(47,224,138,.6)); }
+.upgrade-dial-lose { stroke: #ff2e6e; opacity: .8; filter: url(#upgrade-dial-blur); }
+.upgrade-dial-win { stroke: #2fe08a; filter: url(#upgrade-dial-blur) drop-shadow(0 0 6px rgba(47,224,138,.6)); }
 .upgrade-needle {
   fill: #ffd83d; stroke: rgba(255,255,255,.58); stroke-width: 1;
   transform: rotate(0deg); transform-origin: 80px 80px;

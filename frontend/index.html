@@ -292,6 +292,18 @@
 
     <div class="upgrade-dial-wrap">
       <svg id="upgrade-dial" viewBox="0 0 160 160" class="upgrade-dial">
+        <defs>
+          <!-- Нативный SVG-фильтр вместо CSS filter:blur() — на некоторых
+               WebView (в т.ч. внутри Telegram) CSS blur() на обводке SVG-круга
+               со stroke-dasharray + transform молча не применяется, хотя
+               drop-shadow на других элементах (стрелка, текст) рендерится
+               нормально. filter="url(#...)" через SVG-примитив работает
+               надёжно везде. Регион фильтра увеличен (-60%..+220%), чтобы
+               размытие не обрезалось по краю боксовой рамки элемента. -->
+          <filter id="upgrade-dial-blur" x="-60%" y="-60%" width="220%" height="220%">
+            <feGaussianBlur stdDeviation="1.2" />
+          </filter>
+        </defs>
         <circle cx="80" cy="80" r="68" class="upgrade-dial-track" />
         <circle id="upgrade-dial-lose" cx="80" cy="80" r="68" class="upgrade-dial-arc upgrade-dial-lose" />
         <circle id="upgrade-dial-win" cx="80" cy="80" r="68" class="upgrade-dial-arc upgrade-dial-win" />
