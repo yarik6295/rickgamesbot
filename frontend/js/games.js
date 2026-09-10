@@ -1228,7 +1228,6 @@
 
     reset() {
       this.spinning = false;
-      $('#wheel-result').classList.add('hidden');
       if (!this.segments) {
         // Дефолтная раскраска до первого запроса (совпадает с серверными весами)
         this.segments = [
@@ -1266,7 +1265,6 @@
       this.spinning = true;
       const playBtn = $('#btn-wheel-play');
       playBtn.disabled = true;
-      $('#wheel-result').classList.add('hidden');
 
       try {
         // Баланс ДО ставки — с экрана, как его реально видел игрок перед
@@ -1290,15 +1288,17 @@
 
         setTimeout(() => {
           window.updateBalanceUI(res.newBalance);
-          const box = $('#wheel-result');
-          box.classList.remove('hidden');
+          // Тот же всплывающий тост, что и во всех остальных мини-играх
+          // (Plinko/Upgrade/Mines/Towers) — единый вид результата везде,
+          // разные только тексты.
           if (res.payout >= bet) {
-            $('#wheel-result-title').textContent = `🎉 ×${res.multiplier} — выигрыш!`;
-            $('#wheel-result-sub').textContent = `Начислено ${res.payout} ⭐`;
+            toast(`Выигрыш ×${res.multiplier}: +${res.payout} ⭐`);
             TelegramBridge.haptic('success');
+          } else if (res.payout > 0) {
+            toast(`Вернулось ${res.payout} ⭐ (×${res.multiplier})`, 'error');
+            TelegramBridge.haptic('error');
           } else {
-            $('#wheel-result-title').textContent = `×${res.multiplier}`;
-            $('#wheel-result-sub').textContent = res.payout > 0 ? `Вернулось ${res.payout} ⭐` : 'Пусто в этот раз';
+            toast('Не повезло — ставка сгорела', 'error');
             TelegramBridge.haptic('error');
           }
           this.spinning = false;
