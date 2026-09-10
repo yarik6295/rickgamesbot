@@ -106,7 +106,13 @@ function towersMultiplier(tilesPerRow, bombsPerRow, clearedRows) {
 // потенциальный множитель. Результат — один крутящийся ролл 1..100.
 const UPGRADE_HOUSE_EDGE = 0.10; // RTP 90%
 const UPGRADE_MIN_CHANCE = 2;
-const UPGRADE_MAX_CHANCE = 90;
+// ВАЖНО: множитель = (100/chance) × (1-edge), поэтому при chance ==
+// (1-edge)×100 (т.е. 90 при 10% edge) множитель становится РОВНО ×1.00 —
+// выигрыш просто возвращает ставку без прибыли, что выглядит как "ничего
+// не начислили". Ограничиваем максимальный шанс ниже этого порога, чтобы
+// выигрыш при любом (даже самом "безопасном") выборе давал реальную
+// прибыль — при MAX_CHANCE=80 худший случай даёт ×1.125 (+12.5%).
+const UPGRADE_MAX_CHANCE = 80;
 
 function upgradeMultiplier(chance) {
     return Math.round((100 / chance) * (1 - UPGRADE_HOUSE_EDGE) * 100) / 100;

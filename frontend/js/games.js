@@ -1115,7 +1115,10 @@
     },
 
     setChance(val) {
-      this.chance = Math.min(90, Math.max(2, Math.round(val)));
+      // Верхняя граница держится в паре с UPGRADE_MAX_CHANCE на бэкенде —
+      // это тот порог, где множитель ещё даёт реальную прибыль, а не ровно
+      // ×1.00 (возврат своей же ставки без выигрыша).
+      this.chance = Math.min(80, Math.max(2, Math.round(val)));
       this.updateDial();
       document.querySelectorAll('#tab-game-upgrade .mine-count-btn[data-chance]').forEach((b) => {
         b.classList.toggle('selected', Number(b.dataset.chance) === this.chance);
