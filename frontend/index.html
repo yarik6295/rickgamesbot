@@ -45,7 +45,7 @@
      и пользователь продолжает видеть старое поведение, хотя на сервере уже
      лежат новые файлы. При каждом деплое с правками фронтенда — увеличивайте
      это число (APP_VERSION ниже и во всех тегах). -->
-<link rel="stylesheet" href="css/style.css?v=11" />
+<link rel="stylesheet" href="css/style.css?v=12" />
 </head>
 <body class="bg-bg text-white min-h-screen font-sans overflow-x-hidden">
 
@@ -80,35 +80,35 @@
     <div class="games-grid">
       <div class="game-tile game-tile-crash" data-game="crash">
         <span class="game-badge badge-live">LIVE</span>
-        <div class="game-tile-icon game-logo crash-logo" aria-label="Crash"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M29 6c7 4 11 11 11 19L27 38c-8 0-15-4-19-11L21 14c8 0 15-4 19-8h-11Z"/><circle cx="29" cy="18" r="4"/><path d="m16 32-7 8m14-1 2 7"/></svg></div>
+        <div class="game-art art-crash"><svg viewBox="0 0 180 100" aria-hidden="true"><path class="art-grid" d="M8 80h164M8 56h164M8 32h164M35 10v76M75 10v76M115 10v76M155 10v76"/><path class="art-line" d="M9 77c24-2 37-5 48-14 12-10 16-17 29-21 16-5 25 0 36-13 10-12 17-21 48-25"/><path class="art-rocket" d="m137 20 25-12-12 25-9 4-8-8z"/><path class="art-flame" d="m137 31-12 9 7-13z"/></svg><span class="art-chip">×2.40</span></div>
         <div class="game-tile-name">CRASH</div>
         <div class="game-tile-sub">Вовремя забери ставку</div>
       </div>
       <div class="game-tile game-tile-mines" data-game="mines">
         <span class="game-badge badge-new">NEW</span>
-        <div class="game-tile-icon game-logo mines-logo" aria-label="Mines"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="m24 5 16 12-16 26L8 17 24 5Z"/><path d="m8 17 16 9 16-9M24 26v17"/></svg></div>
+        <div class="game-art art-mines"><div class="mines-mini-grid"><i></i><i></i><i></i><i></i><i></i><i></i><i class="mine-danger">✦</i><i></i><i></i><i></i><i></i><i></i></div><span class="art-chip">5 МИН</span></div>
         <div class="game-tile-name">MINES</div>
         <div class="game-tile-sub">Звёзды против мин</div>
       </div>
       <div class="game-tile game-tile-towers" data-game="towers">
-        <div class="game-tile-icon game-logo towers-logo" aria-label="Towers"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M12 41h24M16 41V21h16v20M20 21V12h8v9M24 5v13M18 10l6-5 6 5M10 29h28M10 35h28"/></svg></div>
+        <div class="game-art art-towers"><div class="tower-mini"><div><i></i><i class="tower-safe">✦</i><i></i></div><div><i></i><i></i><i></i></div><div><i></i><i></i><i></i></div><div><i></i><i></i><i></i></div></div><span class="art-chip">ЭТАЖ 4</span></div>
         <div class="game-tile-name">TOWERS</div>
         <div class="game-tile-sub">Поднимись как можно выше</div>
       </div>
       <div class="game-tile game-tile-plinko" data-game="plinko">
-        <div class="game-tile-icon game-logo plinko-logo" aria-label="Plinko"><svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="9" r="4"/><circle cx="16" cy="20" r="3"/><circle cx="32" cy="20" r="3"/><circle cx="10" cy="31" r="3"/><circle cx="24" cy="31" r="3"/><circle cx="38" cy="31" r="3"/><path d="M6 42h36M13 42v-6m11 6v-6m11 6v-6"/></svg></div>
+        <div class="game-art art-plinko"><div class="plinko-ball"></div><div class="plinko-pegs"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="plinko-buckets"><i>0.5×</i><i>2×</i><i>10×</i><i>2×</i></div></div>
         <div class="game-tile-name">PLINKO</div>
         <div class="game-tile-sub">Куда упадёт шарик?</div>
       </div>
       <div class="game-tile game-tile-upgrade" data-game="upgrade">
         <span class="game-badge badge-new">NEW</span>
-        <div class="game-tile-icon game-logo upgrade-logo" aria-label="Upgrade"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 42V9m0 0-11 11M24 9l11 11M10 42h28M14 30h20"/></svg></div>
+        <div class="game-art art-upgrade"><div class="upgrade-from">★</div><div class="upgrade-arrow">→</div><div class="upgrade-to">✦</div><span class="art-chip">Шанс 62%</span></div>
         <div class="game-tile-name">UPGRADE</div>
         <div class="game-tile-sub">Выбери шанс — рискни подарком</div>
       </div>
       <div class="game-tile game-tile-wheel" data-game="wheel">
         <span class="game-badge badge-new">NEW</span>
-        <div class="game-tile-icon game-logo wheel-logo" aria-label="Wheel"><svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="16"/><circle cx="24" cy="24" r="3"/><path d="M24 8v13m0 6v13M8 24h13m6 0h13M13 13l9 9m4 4 9 9M35 13l-9 9m-4 4-9 9"/></svg></div>
+        <div class="game-art art-wheel"><div class="wheel-pointer">▼</div><div class="wheel-disc"><b>★</b></div><span class="art-chip">ВРАЩЕНИЕ</span></div>
         <div class="game-tile-name">WHEEL</div>
         <div class="game-tile-sub">Одно вращение — один результат</div>
       </div>

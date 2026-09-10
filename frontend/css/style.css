@@ -558,44 +558,37 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 }
 .game-tile {
   position: relative;
-  aspect-ratio: 1 / 0.85;
-  border-radius: 18px;
-  padding: 14px;
+  aspect-ratio: 1 / .98;
+  border-radius: 20px;
+  padding: 11px;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
   overflow: hidden;
-  border: 1px solid rgba(255,255,255,.1);
-  box-shadow: 0 10px 20px rgba(0,0,0,.16), inset 0 1px 0 rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.12);
+  box-shadow: 0 14px 26px rgba(0,0,0,.2), inset 0 1px 0 rgba(255,255,255,.08);
   transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease;
 }
 .game-tile:active { transform: scale(.97); }
 .game-tile:hover { border-color: rgba(255,255,255,.2); box-shadow: 0 14px 28px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.1); }
-.game-tile-crash  { background: radial-gradient(circle at 76% 14%, rgba(0,246,255,.34), transparent 30%), radial-gradient(circle at 20% 100%, rgba(176,38,255,.28), #10101d 72%); }
-.game-tile-mines  { background: radial-gradient(circle at 76% 14%, rgba(0,246,255,.27), transparent 31%), radial-gradient(circle at 20% 100%, rgba(33,82,133,.3), #10101d 72%); }
-.game-tile-towers { background: radial-gradient(circle at 76% 14%, rgba(214,130,255,.3), transparent 31%), radial-gradient(circle at 20% 100%, rgba(91,44,146,.33), #10101d 72%); }
-.game-tile-plinko { background: radial-gradient(circle at 76% 14%, rgba(255,209,67,.25), transparent 31%), radial-gradient(circle at 20% 100%, rgba(176,38,255,.31), #10101d 72%); }
-.game-tile-upgrade { background: radial-gradient(circle at 76% 14%, rgba(47,224,138,.25), transparent 31%), radial-gradient(circle at 20% 100%, rgba(0,131,119,.27), #10101d 72%); }
-.game-tile-wheel   { background: radial-gradient(circle at 76% 14%, rgba(255,46,136,.28), transparent 31%), radial-gradient(circle at 20% 100%, rgba(112,45,179,.32), #10101d 72%); }
-.game-tile-icon { font-size: 2.4rem; margin-bottom: 8px; filter: drop-shadow(0 0 10px rgba(255,255,255,.25)); }
-.game-logo {
-  width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;
-  border-radius: 15px; border: 1px solid rgba(255,255,255,.14);
-  background: linear-gradient(145deg, rgba(255,255,255,.13), rgba(255,255,255,.025));
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.13), 0 8px 18px rgba(0,0,0,.18);
-}
-.game-logo svg { width: 31px; height: 31px; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
-.crash-logo { color: #ff7b9c; background: linear-gradient(145deg, rgba(255,72,121,.3), rgba(176,38,255,.08)); }
-.crash-logo svg path:first-child { fill: rgba(255,96,145,.2); }
-.mines-logo { color: #7ff6ff; background: linear-gradient(145deg, rgba(0,246,255,.28), rgba(51,110,255,.08)); }
-.mines-logo svg path:first-child { fill: rgba(80,224,255,.16); }
-.towers-logo { color: #e8b8ff; background: linear-gradient(145deg, rgba(176,38,255,.28), rgba(91,55,222,.08)); }
-.plinko-logo { color: #ff9cbb; background: linear-gradient(145deg, rgba(255,46,136,.3), rgba(176,38,255,.08)); }
-.plinko-logo circle:first-child { fill: currentColor; stroke: none; }
-.upgrade-logo { color: #70ffe2; background: linear-gradient(145deg, rgba(29,224,173,.25), rgba(0,246,255,.07)); }
-.wheel-logo { color: #ffd86b; background: linear-gradient(145deg, rgba(255,216,61,.3), rgba(255,130,31,.08)); }
-.game-tile-name { font-weight: 900; font-size: 1.15rem; letter-spacing: -0.02em; font-style: italic; }
-.game-tile-sub { font-size: .7rem; color: rgba(255,255,255,.5); font-weight: 600; }
+.game-tile::after { content: ''; position:absolute; inset: 0; pointer-events:none; background: linear-gradient(180deg, transparent 38%, rgba(6,7,16,.28) 60%, rgba(6,7,16,.86) 100%); }
+.game-tile > * { position: relative; z-index: 1; }
+.game-tile-crash  { background: radial-gradient(circle at 83% 18%, rgba(255,66,130,.34), transparent 33%), linear-gradient(150deg, #231432, #10111e 76%); }
+.game-tile-mines  { background: radial-gradient(circle at 84% 18%, rgba(0,246,255,.3), transparent 33%), linear-gradient(150deg, #112a39, #10111e 76%); }
+.game-tile-towers { background: radial-gradient(circle at 80% 16%, rgba(196,113,255,.34), transparent 33%), linear-gradient(150deg, #2a193c, #10111e 76%); }
+.game-tile-plinko { background: radial-gradient(circle at 82% 16%, rgba(255,177,56,.34), transparent 33%), linear-gradient(150deg, #302036, #10111e 76%); }
+.game-tile-upgrade { background: radial-gradient(circle at 80% 15%, rgba(55,234,184,.29), transparent 33%), linear-gradient(150deg, #123536, #10111e 76%); }
+.game-tile-wheel   { background: radial-gradient(circle at 82% 16%, rgba(255,80,151,.32), transparent 33%), linear-gradient(150deg, #321b3b, #10111e 76%); }
+.game-art { height: 93px; position: relative; margin: -2px -2px 6px; overflow: hidden; border-radius: 14px; background: rgba(4,6,16,.24); }
+.art-chip { position:absolute; left:7px; top:7px; padding:3px 6px; border-radius:7px; color:#fff; font-size:.55rem; font-weight:900; letter-spacing:.04em; background:rgba(5,7,16,.52); border:1px solid rgba(255,255,255,.13); }
+.art-crash svg { width:100%; height:100%; } .art-grid { stroke:rgba(255,255,255,.09); stroke-width:1; } .art-line { fill:none; stroke:#ff6aa2; stroke-width:3; filter:drop-shadow(0 0 5px #ff3d87); } .art-rocket { fill:#fff0f6; stroke:#ff6aa2; stroke-width:1; } .art-flame { fill:#ffbd5b; }
+.mines-mini-grid { display:grid; grid-template-columns:repeat(4, 19px); gap:6px; width:max-content; transform:rotate(-8deg); margin:9px 0 0 35px; } .mines-mini-grid i,.tower-mini i { display:block; width:19px; height:19px; border-radius:5px; background:linear-gradient(145deg,#234761,#122535); border:1px solid rgba(126,242,255,.24); box-shadow:inset 0 1px 0 rgba(255,255,255,.12); } .mines-mini-grid .mine-danger { display:grid; place-items:center; color:#ff779f; font-style:normal; background:#5a1e46; border-color:#ff6094; box-shadow:0 0 10px rgba(255,59,127,.55); }
+.tower-mini { width:93px; margin:1px auto 0; transform:perspective(130px) rotateX(13deg); } .tower-mini div { display:flex; justify-content:center; gap:4px; margin-top:4px; } .tower-mini i { width:24px; height:15px; border-radius:4px; background:#31234d; border-color:rgba(225,183,255,.25); } .tower-mini .tower-safe { display:grid; place-items:center; color:#85ffe2; background:#166051; border-color:#69f7d6; font-style:normal; font-size:.7rem; box-shadow:0 0 10px rgba(42,255,201,.4); }
+.plinko-ball { position:absolute; left:47%; top:8px; width:15px; height:15px; border-radius:50%; background:radial-gradient(circle at 30% 25%,#fff,#ff719f 35%,#cd1762); box-shadow:0 0 13px #ff4f91; z-index:2; } .plinko-pegs { display:grid; grid-template-columns:repeat(4,7px); gap:8px 16px; width:max-content; margin:29px auto 0; } .plinko-pegs i { width:7px; height:7px; border-radius:50%; background:#ffc05a; box-shadow:0 0 7px rgba(255,188,66,.8); } .plinko-pegs i:nth-child(4n+1){ margin-left:11px; } .plinko-buckets { position:absolute; left:14px; right:14px; bottom:3px; display:flex; gap:3px; } .plinko-buckets i { flex:1; text-align:center; font-style:normal; font-size:.46rem; padding:3px 0; border-radius:3px 3px 6px 6px; color:#ffd87a; background:rgba(255,159,44,.22); border:1px solid rgba(255,196,79,.25); } .plinko-buckets i:nth-child(3){ color:#fff; background:rgba(255,57,121,.4); }
+.art-upgrade { display:flex; align-items:center; justify-content:center; gap:11px; } .upgrade-from,.upgrade-to { width:37px; height:37px; display:grid; place-items:center; border-radius:11px; font-size:1.25rem; } .upgrade-from { color:#a4fff0; background:rgba(28,196,160,.23); border:1px solid rgba(107,255,226,.34); } .upgrade-arrow { font-size:1.5rem; color:#83ffe6; text-shadow:0 0 12px #2adbb7; } .upgrade-to { color:#ffd85b; background:rgba(255,189,61,.23); border:1px solid rgba(255,224,109,.38); box-shadow:0 0 16px rgba(255,208,51,.24); }
+.wheel-pointer { position:absolute; top:1px; left:0; right:0; text-align:center; z-index:2; color:#fff; font-size:.8rem; text-shadow:0 0 6px #fff; } .wheel-disc { width:68px; height:68px; margin:12px auto 0; border-radius:50%; display:grid; place-items:center; color:#fff3b0; border:4px solid #ffd45b; background:conic-gradient(#ed477c 0 45deg,#793bed 45deg 90deg,#10c8cf 90deg 135deg,#ffbd46 135deg 180deg,#ed477c 180deg 225deg,#793bed 225deg 270deg,#10c8cf 270deg 315deg,#ffbd46 315deg); box-shadow:0 0 16px rgba(255,192,52,.42); } .wheel-disc b { width:19px; height:19px; border-radius:50%; display:grid; place-items:center; color:#42254e; background:#fff3bd; font-size:.7rem; }
+.game-tile-name { font-weight: 900; font-size: 1.08rem; letter-spacing: .015em; font-style:italic; text-shadow:0 2px 8px rgba(0,0,0,.5); }
+.game-tile-sub { min-height:31px; font-size: .67rem; line-height:1.18; color: rgba(255,255,255,.58); font-weight:650; }
 .game-badge {
   position: absolute; top: 10px; right: 10px;
   font-size: .6rem; font-weight: 800; letter-spacing: .04em;
