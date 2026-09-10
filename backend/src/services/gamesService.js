@@ -42,14 +42,17 @@ function generateMinePositions(gridSize, mineCount, serverSeed) {
 
 // Мультипликатор за N открытых безопасных клеток при M минах на поле gridSize
 function minesMultiplier(gridSize, mineCount, safeRevealed) {
-    const HOUSE_EDGE = 0.03;
+    // Целевой возврат игроку — 90% на любом количестве безопасных клеток.
+    // Коэффициент применяется один раз к справедливому множителю, поэтому
+    // кривая вероятностей остаётся честной и предсказуемой.
+    const RTP = 0.90;
     let mult = 1;
     for (let i = 0; i < safeRevealed; i++) {
         const safeLeft = gridSize - mineCount - i;
         const cellsLeft = gridSize - i;
         mult *= cellsLeft / safeLeft;
     }
-    return Math.round(mult * (1 - HOUSE_EDGE) * 100) / 100;
+    return Math.round(mult * RTP * 100) / 100;
 }
 
 /* ================================ PLINKO ================================ */
@@ -87,10 +90,14 @@ function generateTowerLayout(rows, tilesPerRow, bombsPerRow, serverSeed) {
     return layout;
 }
 
-function towersMultiplierPerRow(tilesPerRow, bombsPerRow) {
-    const HOUSE_EDGE = 0.03;
+function towersMultiplier(tilesPerRow, bombsPerRow, clearedRows) {
+    // 90% применяется один раз ко всему текущему честному множителю, а не
+    // на каждом этаже. Поэтому RTP при выводе после ЛЮБОГО числа этажей
+    // остаётся 90%, как и в Mines.
+    const TARGET_RTP = 0.90;
     const safeTiles = tilesPerRow - bombsPerRow;
-    return Math.round((tilesPerRow / safeTiles) * (1 - HOUSE_EDGE) * 100) / 100;
+    const fairMultiplier = Math.pow(tilesPerRow / safeTiles, clearedRows);
+    return Math.round(fairMultiplier * TARGET_RTP * 100) / 100;
 }
 
 /* ================================ UPGRADE ================================ */
@@ -147,7 +154,7 @@ module.exports = {
     PLINKO_MULTIPLIERS,
     playPlinko,
     generateTowerLayout,
-    towersMultiplierPerRow,
+    towersMultiplier,
     UPGRADE_MIN_CHANCE,
     UPGRADE_MAX_CHANCE,
     upgradeMultiplier,

@@ -625,7 +625,7 @@
 
   /* ================================ TOWERS ================================ */
   const Towers = {
-    rows: 8,
+    rows: 11,
     tilesPerRow: 3,
     active: false,
     currentRow: 0,

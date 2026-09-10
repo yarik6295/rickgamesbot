@@ -8,7 +8,7 @@ const {
     minesMultiplier,
     playPlinko,
     generateTowerLayout,
-    towersMultiplierPerRow,
+    towersMultiplier,
     UPGRADE_MIN_CHANCE,
     UPGRADE_MAX_CHANCE,
     upgradeMultiplier,
@@ -370,7 +370,7 @@ async function plinkoPlay(req, res) {
 }
 
 /* ================================ TOWERS ================================ */
-const TOWERS_ROWS = 8;
+const TOWERS_ROWS = 11;
 const TOWERS_TILES_PER_ROW = 3;
 const TOWERS_BOMBS_PER_ROW = 1;
 
@@ -436,8 +436,6 @@ async function towersPick(req, res) {
             throw { status: 400, message: 'Некорректная клетка' };
         }
 
-        const rowMultiplier = towersMultiplierPerRow(session.tilesPerRow, session.bombsPerRow);
-
         if (session.layout[currentRow].includes(tile)) {
             activeRounds.remove(user.id, 'towers');
             const revealedAtLoss = session.revealed;
@@ -455,7 +453,7 @@ async function towersPick(req, res) {
 
         session.revealed.push(tile);
         const bombPositions = session.layout.slice(0, session.revealed.length).map((row) => row[0]);
-        const multiplier = Math.round(Math.pow(rowMultiplier, session.revealed.length) * 100) / 100;
+        const multiplier = towersMultiplier(session.tilesPerRow, session.bombsPerRow, session.revealed.length);
         const potentialPayout = Math.floor(session.bet * multiplier);
         const completed = session.revealed.length >= session.rows;
 
@@ -487,8 +485,7 @@ async function towersStatus(req, res) {
     const session = activeRounds.get(user.id, 'towers');
     if (session) {
         const bombPositions = session.layout.slice(0, session.revealed.length).map((row) => row[0]);
-        const rowMultiplier = towersMultiplierPerRow(session.tilesPerRow, session.bombsPerRow);
-        const multiplier = session.revealed.length > 0 ? Math.round(Math.pow(rowMultiplier, session.revealed.length) * 100) / 100 : 1;
+        const multiplier = session.revealed.length > 0 ? towersMultiplier(session.tilesPerRow, session.bombsPerRow, session.revealed.length) : 1;
         const potentialPayout = session.revealed.length > 0 ? Math.floor(session.bet * multiplier) : 0;
         return res.json({
             active: true, rows: session.rows, tilesPerRow: session.tilesPerRow, bet: session.bet,
@@ -510,8 +507,7 @@ async function towersStatus(req, res) {
     });
 
     const bombPositions = hidden.layout.slice(0, revealed.length).map((row) => row[0]);
-    const rowMultiplier = towersMultiplierPerRow(config.tilesPerRow, config.bombsPerRow);
-    const multiplier = revealed.length > 0 ? Math.round(Math.pow(rowMultiplier, revealed.length) * 100) / 100 : 1;
+    const multiplier = revealed.length > 0 ? towersMultiplier(config.tilesPerRow, config.bombsPerRow, revealed.length) : 1;
     const potentialPayout = revealed.length > 0 ? Math.floor(round.bet_coins * multiplier) : 0;
 
     res.json({
@@ -534,8 +530,7 @@ async function towersCashout(req, res) {
         if (!session) throw { status: 404, message: 'Нет активного раунда Towers' };
         if (session.revealed.length === 0) throw { status: 400, message: 'Пройдите хотя бы один этаж перед выводом' };
 
-        const rowMultiplier = towersMultiplierPerRow(session.tilesPerRow, session.bombsPerRow);
-        const multiplier = Math.round(Math.pow(rowMultiplier, session.revealed.length) * 100) / 100;
+        const multiplier = towersMultiplier(session.tilesPerRow, session.bombsPerRow, session.revealed.length);
         const payout = Math.floor(session.bet * multiplier);
 
         activeRounds.remove(user.id, 'towers');
