@@ -528,7 +528,7 @@
       if (this.busy) return;
       this.busy = true;
       const bet = Number($('#mines-bet').value);
-      const mineCount = Number($('#mines-count-row .selected')?.dataset.count || 3);
+      const mineCount = Number($('#mines-count-row .selected')?.dataset.count || 5);
       const startBtn = $('#btn-mines-start');
       startBtn.disabled = true;
       try {

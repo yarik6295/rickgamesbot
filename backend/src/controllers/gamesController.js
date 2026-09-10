@@ -188,7 +188,9 @@ async function minesStart(req, res) {
 
         const bet = validateBet(req.body.bet, user.coins_balance);
         const gridSize = 25;
-        const mineCount = Math.min(Math.max(Number(req.body.mineCount) || 3, 1), 24);
+        // В интерфейсе доступны 5/10/15/20; сервер также не позволяет
+        // обойти минимальное значение прямым API-запросом.
+        const mineCount = Math.min(Math.max(Number(req.body.mineCount) || 5, 5), 24);
         const fairness = consumeCommitment(user.id, 'mines', req.body.commitmentId);
         const { serverSeed } = fairness;
         const mines = generateMinePositions(gridSize, mineCount, serverSeed);
