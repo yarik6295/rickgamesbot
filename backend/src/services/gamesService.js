@@ -104,7 +104,7 @@ function towersMultiplier(tilesPerRow, bombsPerRow, clearedRows) {
 // "Апгрейдер": игрок сам выбирает шанс выигрыша (2–90%), множитель считается
 // от шанса с фиксированным house edge — чем ниже выбранный шанс, тем выше
 // потенциальный множитель. Результат — один крутящийся ролл 1..100.
-const UPGRADE_HOUSE_EDGE = 0.08;
+const UPGRADE_HOUSE_EDGE = 0.10; // RTP 90%
 const UPGRADE_MIN_CHANCE = 2;
 const UPGRADE_MAX_CHANCE = 90;
 

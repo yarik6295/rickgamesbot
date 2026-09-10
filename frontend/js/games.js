@@ -990,8 +990,11 @@
       try {
         const fairness = await Api.fairnessCommit('plinko');
         const res = await Api.plinkoPlay(bet, this.risk, fairness.commitmentId);
+        // Баланс (ставка уже списана и, если выиграл, выигрыш уже начислен на
+        // сервере атомарно в момент этого ответа) обновляем в UI сразу, не
+        // дожидаясь анимации падения шарика — она чисто декоративная.
+        window.updateBalanceUI(res.newBalance);
         this.animateBall(res.path, res.bucketIndex, () => {
-          window.updateBalanceUI(res.newBalance);
           toast(res.payout >= bet ? `Выигрыш ×${res.multiplier}: +${res.payout} ⭐` : `Мимо: ×${res.multiplier}`, res.payout >= bet ? 'info' : 'error');
           TelegramBridge.haptic(res.payout >= bet ? 'success' : 'error');
           document.querySelector(`.plinko-bucket[data-idx="${res.bucketIndex}"]`)?.classList.add('plinko-bucket-hit');
@@ -1091,7 +1094,7 @@
     totalRotation: 0,
 
     multiplierFor(chance) {
-      return Math.round((100 / chance) * 0.92 * 100) / 100;
+      return Math.round((100 / chance) * 0.90 * 100) / 100;
     },
 
     chanceLabel(chance) {
@@ -1139,13 +1142,16 @@
       try {
         const fairness = await Api.fairnessCommit('upgrade');
         const res = await Api.upgradePlay(bet, this.chance, fairness.commitmentId);
+        // Ставка уже списана (и выигрыш, если он есть, уже начислен) на
+        // сервере атомарно в момент этого ответа — отражаем это в балансе
+        // сразу, не дожидаясь окончания вращения стрелки.
+        window.updateBalanceUI(res.newBalance);
+
         const rollAngle = (res.roll / 100) * 360;
         this.totalRotation += 360 * 3 - (this.totalRotation % 360) + rollAngle;
         $('#upgrade-needle').style.transform = `rotate(${this.totalRotation}deg)`;
 
         setTimeout(() => {
-          window.updateBalanceUI(res.newBalance);
-
           if (res.win) {
             $('#upgrade-status-label').textContent = `Победа! (roll ${res.roll})`;
             toast(`Выигрыш ×${res.multiplier.toFixed(2)}: +${res.payoutCoins} ⭐`);
@@ -1246,6 +1252,10 @@
       try {
         const fairness = await Api.fairnessCommit('wheel');
         const res = await Api.wheelPlay(bet, fairness.commitmentId);
+        // Ставка уже списана (и выигрыш уже начислен) на сервере атомарно в
+        // момент этого ответа — отражаем баланс сразу, не дожидаясь конца
+        // вращения колеса.
+        window.updateBalanceUI(res.newBalance);
         this.segments = res.segments;
         $('#wheel-disc').style.background = this.buildGradient(this.segments);
         this.renderLegend();
@@ -1256,7 +1266,6 @@
         $('#wheel-disc').style.transform = `rotate(${this.totalRotation}deg)`;
 
         setTimeout(() => {
-          window.updateBalanceUI(res.newBalance);
           const box = $('#wheel-result');
           box.classList.remove('hidden');
           if (res.payout >= bet) {
