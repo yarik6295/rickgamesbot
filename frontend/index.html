@@ -45,7 +45,7 @@
      и пользователь продолжает видеть старое поведение, хотя на сервере уже
      лежат новые файлы. При каждом деплое с правками фронтенда — увеличивайте
      это число (APP_VERSION ниже и во всех тегах). -->
-<link rel="stylesheet" href="css/style.css?v=19" />
+<link rel="stylesheet" href="css/style.css?v=20" />
 </head>
 <body class="bg-bg text-white min-h-screen font-sans overflow-x-hidden">
 
@@ -82,32 +82,38 @@
   <section id="tab-games" class="tab-panel">
     <div class="games-grid">
       <div class="game-tile game-tile-crash" data-game="crash">
+        <span class="game-tile-chevron">›</span>
         <span class="game-badge badge-live">LIVE</span>
         <div class="game-art art-crash"><svg viewBox="0 0 180 100" aria-hidden="true"><path class="art-grid" d="M8 80h164M8 56h164M8 32h164M35 10v76M75 10v76M115 10v76M155 10v76"/><path class="art-line" d="M9 77c24-2 37-5 48-14 12-10 16-17 29-21 16-5 25 0 36-13 10-12 17-21 48-25"/><path class="art-rocket" d="m137 20 25-12-12 25-9 4-8-8z"/><path class="art-flame" d="m137 31-12 9 7-13z"/></svg><span class="art-chip">×2.40</span></div>
         <div class="game-tile-name">CRASH</div>
         <div class="game-tile-sub">Вовремя забери ставку</div>
       </div>
       <div class="game-tile game-tile-mines" data-game="mines">
+        <span class="game-tile-chevron">›</span>
         <div class="game-art art-mines"><div class="mines-mini-grid"><i></i><i></i><i></i><i></i><i></i><i></i><i class="mine-danger">✦</i><i></i><i></i><i></i><i></i><i></i></div><span class="art-chip">5 МИН</span></div>
         <div class="game-tile-name">MINES</div>
         <div class="game-tile-sub">Звёзды против мин</div>
       </div>
       <div class="game-tile game-tile-towers" data-game="towers">
+        <span class="game-tile-chevron">›</span>
         <div class="game-art art-towers"><div class="tower-mini"><div><i></i><i class="tower-safe">✦</i><i></i></div><div><i></i><i></i><i></i></div><div><i></i><i></i><i></i></div><div><i></i><i></i><i></i></div></div><span class="art-chip">ЭТАЖ 4</span></div>
         <div class="game-tile-name">TOWERS</div>
         <div class="game-tile-sub">Поднимись как можно выше</div>
       </div>
       <div class="game-tile game-tile-plinko" data-game="plinko">
+        <span class="game-tile-chevron">›</span>
         <div class="game-art art-plinko"><div class="plinko-ball"></div><div class="plinko-pegs"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="plinko-buckets"><i>0.5×</i><i>2×</i><i>10×</i><i>2×</i></div></div>
         <div class="game-tile-name">PLINKO</div>
         <div class="game-tile-sub">Куда упадёт шарик?</div>
       </div>
       <div class="game-tile game-tile-upgrade" data-game="upgrade">
+        <span class="game-tile-chevron">›</span>
         <div class="game-art art-upgrade"><div class="upgrade-from">★</div><div class="upgrade-arrow">→</div><div class="upgrade-to">✦</div><span class="art-chip">Шанс 62%</span></div>
         <div class="game-tile-name">UPGRADE</div>
         <div class="game-tile-sub">Выбери шанс — рискни подарком</div>
       </div>
       <div class="game-tile game-tile-wheel" data-game="wheel">
+        <span class="game-tile-chevron">›</span>
         <div class="game-art art-wheel"><div class="wheel-pointer">▼</div><div class="wheel-disc"><b>★</b></div><span class="art-chip">ВРАЩЕНИЕ</span></div>
         <div class="game-tile-name">WHEEL</div>
         <div class="game-tile-sub">Одно вращение — один результат</div>

@@ -630,42 +630,66 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 /* Компактный каталог игр: вместо мини-иллюстраций — лаконичный игровой
    маркер. Так карточка выглядит как премиальный лаунчер и не спорит с
    интерфейсом самих игр. */
-.games-grid { grid-template-columns: 1fr; gap: 9px; }
+.games-grid { grid-template-columns: 1fr; gap: 10px; }
 .game-tile {
-  height: 86px; min-height: 86px; aspect-ratio: auto; padding: 12px 105px 12px 15px;
-  justify-content: center; border-radius: 18px;
+  height: 88px; min-height: 88px; aspect-ratio: auto; padding: 12px 100px 12px 18px;
+  justify-content: center; border-radius: 20px;
+  border: 1px solid rgba(255,255,255,.08);
+  box-shadow: 0 12px 24px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.08);
+}
+.game-tile::before {
+  content: ''; position: absolute; left: 0; top: 12px; bottom: 12px; width: 3px;
+  border-radius: 0 3px 3px 0; background: var(--tile-accent, #fff); opacity: .85;
+  box-shadow: 0 0 10px var(--tile-accent, #fff);
 }
 .game-tile::after { background: linear-gradient(90deg, transparent 30%, rgba(6,7,16,.16) 54%, rgba(6,7,16,.12) 100%); }
+.game-tile-crash   { --tile-accent: #ff3d84; }
+.game-tile-mines   { --tile-accent: #00e2ff; }
+.game-tile-towers  { --tile-accent: #b24dff; }
+.game-tile-plinko  { --tile-accent: #ffab30; }
+.game-tile-upgrade { --tile-accent: #2ce5b4; }
+.game-tile-wheel   { --tile-accent: #ffcd39; }
+.game-tile:hover { border-color: rgba(255,255,255,.16); box-shadow: 0 14px 28px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.1); }
+.game-tile:hover .game-art { transform: scale(1.04); }
+.game-tile-chevron {
+  position: absolute; right: 14px; top: 50%; transform: translateY(6px);
+  z-index: 3; color: rgba(255,255,255,.28); font-size: 1.1rem; font-weight: 700;
+}
 .game-tile .game-art {
-  position: absolute; z-index: 2; right: 10px; top: 10px; width: 82px; height: 66px;
+  position: absolute; z-index: 2; right: 12px; top: 10px; width: 78px; height: 62px;
   margin: 0; display: grid; place-items: center; overflow: visible; border-radius: 15px;
-  border: 1px solid rgba(255,255,255,.13); background: rgba(255,255,255,.055);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.1), 0 8px 18px rgba(0,0,0,.18);
+  border: 1px solid rgba(255,255,255,.16); background: rgba(255,255,255,.055);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 8px 20px rgba(0,0,0,.24), 0 0 22px -6px var(--tile-accent, transparent);
+  transition: transform .18s ease;
 }
 .game-tile .game-art > * { display: none !important; }
-.game-tile .game-art::before { color: #fff; font-size: 1.16rem; line-height: 1; font-weight: 950; letter-spacing: -.06em; text-shadow: 0 0 14px currentColor; }
-.game-tile .game-art::after { position:absolute; bottom:8px; font-size:.47rem; font-weight:850; letter-spacing:.1em; color:rgba(255,255,255,.48); }
-.game-tile .art-crash { color:#ff79a9; background:linear-gradient(145deg, rgba(255,61,132,.22), rgba(176,38,255,.06)); }
+.game-tile .game-art::before { color: #fff; font-size: 1.14rem; line-height: 1; font-weight: 950; letter-spacing: -.06em; text-shadow: 0 0 14px currentColor; }
+.game-tile .game-art::after { position:absolute; bottom:7px; font-size:.46rem; font-weight:850; letter-spacing:.1em; color:rgba(255,255,255,.5); }
+.game-tile .art-crash { color:#ff79a9; background:linear-gradient(145deg, rgba(255,61,132,.24), rgba(176,38,255,.07)); }
 .game-tile .art-crash::before { content:'1.00×'; }
 .game-tile .art-crash::after { content:'CRASH'; }
-.game-tile .art-mines { color:#73efff; background:linear-gradient(145deg, rgba(0,226,255,.2), rgba(25,76,128,.08)); }
+.game-tile .art-mines { color:#73efff; background:linear-gradient(145deg, rgba(0,226,255,.22), rgba(25,76,128,.09)); }
 .game-tile .art-mines::before { content:'5×5'; }
 .game-tile .art-mines::after { content:'MINES'; }
-.game-tile .art-towers { color:#d8a4ff; background:linear-gradient(145deg, rgba(178,77,255,.22), rgba(80,46,145,.08)); }
+.game-tile .art-towers { color:#d8a4ff; background:linear-gradient(145deg, rgba(178,77,255,.24), rgba(80,46,145,.09)); }
 .game-tile .art-towers::before { content:'11'; }
 .game-tile .art-towers::after { content:'ЭТАЖЕЙ'; }
-.game-tile .art-plinko { color:#ffc663; background:linear-gradient(145deg, rgba(255,171,48,.22), rgba(169,62,129,.08)); }
+.game-tile .art-plinko { color:#ffc663; background:linear-gradient(145deg, rgba(255,171,48,.24), rgba(169,62,129,.09)); }
 .game-tile .art-plinko::before { content:'13×'; }
 .game-tile .art-plinko::after { content:'PLINKO'; }
-.game-tile .art-upgrade { color:#78ffe1; background:linear-gradient(145deg, rgba(44,229,180,.2), rgba(10,112,99,.08)); }
-.game-tile .art-upgrade::before { content:'%'; font-size:1.65rem; }
+.game-tile .art-upgrade { color:#78ffe1; background:linear-gradient(145deg, rgba(44,229,180,.22), rgba(10,112,99,.09)); }
+.game-tile .art-upgrade::before { content:'%'; font-size:1.6rem; }
 .game-tile .art-upgrade::after { content:'UPGRADE'; }
-.game-tile .art-wheel { color:#ffd66f; background:linear-gradient(145deg, rgba(255,205,57,.23), rgba(190,62,134,.08)); }
+.game-tile .art-wheel { color:#ffd66f; background:linear-gradient(145deg, rgba(255,205,57,.25), rgba(190,62,134,.09)); }
 .game-tile .art-wheel::before { content:'360°'; font-size:1rem; }
 .game-tile .art-wheel::after { content:'WHEEL'; }
-.game-tile-name { font-size: 1.06rem; }
-.game-tile-sub { min-height: 0; max-width: 175px; margin-top: 2px; }
-.game-badge { top: 9px; right: 100px; z-index:3; }
+.game-tile-name { font-size: 1.08rem; display:flex; align-items:center; gap:7px; }
+.game-tile-name::before {
+  content: ''; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--tile-accent, #fff); box-shadow: 0 0 8px var(--tile-accent, #fff);
+}
+.game-tile-sub { min-height: 0; max-width: 165px; margin-top: 3px; }
+.game-badge { top: 9px; right: 96px; z-index:3; }
 
 /* ---------- Общие элементы ставок ---------- */
 .bet-label { font-size: .72rem; color: rgba(255,255,255,.45); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
