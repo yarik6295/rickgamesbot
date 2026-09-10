@@ -262,8 +262,11 @@
       <span class="w-9"></span>
     </div>
 
-    <div class="plinko-board" id="plinko-board"></div>
-    <div class="plinko-buckets" id="plinko-buckets"></div>
+    <div class="plinko-game-shell">
+      <div class="plinko-board-top"><span>PLINKO</span><span id="plinko-risk-label">СРЕДНИЙ РИСК</span></div>
+      <div class="plinko-board" id="plinko-board"></div>
+      <div class="plinko-buckets" id="plinko-buckets"></div>
+    </div>
 
     <div class="mt-4">
       <label class="bet-label">Ставка</label>
@@ -355,6 +358,7 @@
       <div class="wheel-pointer">▼</div>
       <div id="wheel-disc" class="wheel-disc"></div>
     </div>
+    <div id="wheel-legend" class="wheel-legend" aria-label="Множители колеса"></div>
 
     <div class="bet-controls mt-4">
       <label class="bet-label">Ставка</label>

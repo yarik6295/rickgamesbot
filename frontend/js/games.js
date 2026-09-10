@@ -929,6 +929,8 @@
         b.style.setProperty('--pb-glow', c.glow);
         el.appendChild(b);
       });
+      const riskLabel = $('#plinko-risk-label');
+      if (riskLabel) riskLabel.textContent = `${({ low: 'НИЗКИЙ', medium: 'СРЕДНИЙ', high: 'ВЫСОКИЙ' })[this.risk]} РИСК`;
     },
 
     renderPegs() {
@@ -1174,6 +1176,24 @@
         ];
         $('#wheel-disc').style.background = this.buildGradient(this.segments);
       }
+      this.renderLegend();
+    },
+
+    renderLegend() {
+      const legend = $('#wheel-legend');
+      if (!legend || !this.segments) return;
+      legend.innerHTML = '';
+      this.segments.forEach((segment) => {
+        const item = document.createElement('div');
+        item.className = 'wheel-legend-item';
+        const dot = document.createElement('span');
+        dot.className = 'wheel-legend-dot';
+        dot.style.background = segment.color;
+        const label = document.createElement('span');
+        label.textContent = `×${segment.multiplier}`;
+        item.append(dot, label);
+        legend.appendChild(item);
+      });
     },
 
     async play() {
@@ -1189,6 +1209,7 @@
         const res = await Api.wheelPlay(bet, fairness.commitmentId);
         this.segments = res.segments;
         $('#wheel-disc').style.background = this.buildGradient(this.segments);
+        this.renderLegend();
 
         // Указатель сверху = 0deg. Крутим колесо так, чтобы нужный сектор оказался под ним.
         const segAngle = this.angleForSegment(this.segments, res.segmentIndex);
