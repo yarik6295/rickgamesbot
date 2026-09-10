@@ -14,7 +14,14 @@ router.use(telegramAuth);
  */
 router.get('/me', async (req, res) => {
     const user = await getOrCreateUser(req.telegramUser);
-    res.json({ user });
+    // Оборот — сумма ставок в завершённых игровых раундах. Храним его
+    // расчётным, а не отдельной колонкой users: так старые аккаунты сразу
+    // получают корректное значение без миграции и риска рассинхронизации.
+    const turnover = await db.get(
+        `SELECT COALESCE(SUM(bet_coins), 0) AS total_wagered FROM game_rounds WHERE user_id = ?`,
+        [user.id]
+    );
+    res.json({ user: { ...user, total_wagered: Number(turnover?.total_wagered) || 0 } });
 });
 
 /**

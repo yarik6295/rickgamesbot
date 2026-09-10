@@ -427,7 +427,7 @@ async function loadProfile() {
     $('#profile-avatar').src = tgUser.photo_url || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + user.telegram_id;
     $('#profile-name').textContent = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ') || 'Игрок';
     $('#profile-username').textContent = tgUser.username ? '@' + tgUser.username : '';
-    $('#profile-level').textContent = user.account_level;
+    $('#profile-turnover').textContent = Number(user.total_wagered || 0).toLocaleString('ru-RU');
     $('#profile-cases').textContent = user.cases_opened;
     $('#profile-balance').textContent = user.coins_balance;
 
@@ -529,7 +529,7 @@ if (anonToggleEl) {
     anonToggleEl.disabled = true;
     try {
       const { user } = await Api.setLeaderboardVisibility(anonymous);
-      if (state.profile) state.profile.user = user;
+      if (state.profile) state.profile.user = { ...state.profile.user, ...user };
       showToast(anonymous ? 'В топе игроков вы теперь анонимны' : 'В топе игроков теперь видно ваше имя', 'success');
       // Если таблица лидеров уже загружалась, следующий заход должен
       // подтянуть актуальное отображение.
