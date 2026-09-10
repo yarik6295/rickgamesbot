@@ -597,6 +597,46 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .badge-live { background: #ff2e4d; color: #fff; box-shadow: 0 0 10px rgba(255,46,77,.6); }
 .badge-new  { background: #00f6ff; color: #06060f; box-shadow: 0 0 10px rgba(0,246,255,.6); }
 
+/* Компактный каталог игр: вместо мини-иллюстраций — лаконичный игровой
+   маркер. Так карточка выглядит как премиальный лаунчер и не спорит с
+   интерфейсом самих игр. */
+.games-grid { grid-template-columns: 1fr; gap: 9px; }
+.game-tile {
+  height: 86px; min-height: 86px; aspect-ratio: auto; padding: 12px 105px 12px 15px;
+  justify-content: center; border-radius: 18px;
+}
+.game-tile::after { background: linear-gradient(90deg, transparent 30%, rgba(6,7,16,.16) 54%, rgba(6,7,16,.12) 100%); }
+.game-tile .game-art {
+  position: absolute; z-index: 2; right: 10px; top: 10px; width: 82px; height: 66px;
+  margin: 0; display: grid; place-items: center; overflow: visible; border-radius: 15px;
+  border: 1px solid rgba(255,255,255,.13); background: rgba(255,255,255,.055);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.1), 0 8px 18px rgba(0,0,0,.18);
+}
+.game-tile .game-art > * { display: none !important; }
+.game-tile .game-art::before { color: #fff; font-size: 1.16rem; line-height: 1; font-weight: 950; letter-spacing: -.06em; text-shadow: 0 0 14px currentColor; }
+.game-tile .game-art::after { position:absolute; bottom:8px; font-size:.47rem; font-weight:850; letter-spacing:.1em; color:rgba(255,255,255,.48); }
+.game-tile .art-crash { color:#ff79a9; background:linear-gradient(145deg, rgba(255,61,132,.22), rgba(176,38,255,.06)); }
+.game-tile .art-crash::before { content:'1.00×'; }
+.game-tile .art-crash::after { content:'CRASH'; }
+.game-tile .art-mines { color:#73efff; background:linear-gradient(145deg, rgba(0,226,255,.2), rgba(25,76,128,.08)); }
+.game-tile .art-mines::before { content:'5×5'; }
+.game-tile .art-mines::after { content:'MINES'; }
+.game-tile .art-towers { color:#d8a4ff; background:linear-gradient(145deg, rgba(178,77,255,.22), rgba(80,46,145,.08)); }
+.game-tile .art-towers::before { content:'11'; }
+.game-tile .art-towers::after { content:'ЭТАЖЕЙ'; }
+.game-tile .art-plinko { color:#ffc663; background:linear-gradient(145deg, rgba(255,171,48,.22), rgba(169,62,129,.08)); }
+.game-tile .art-plinko::before { content:'13×'; }
+.game-tile .art-plinko::after { content:'PLINKO'; }
+.game-tile .art-upgrade { color:#78ffe1; background:linear-gradient(145deg, rgba(44,229,180,.2), rgba(10,112,99,.08)); }
+.game-tile .art-upgrade::before { content:'%'; font-size:1.65rem; }
+.game-tile .art-upgrade::after { content:'UPGRADE'; }
+.game-tile .art-wheel { color:#ffd66f; background:linear-gradient(145deg, rgba(255,205,57,.23), rgba(190,62,134,.08)); }
+.game-tile .art-wheel::before { content:'360°'; font-size:1rem; }
+.game-tile .art-wheel::after { content:'WHEEL'; }
+.game-tile-name { font-size: 1.06rem; }
+.game-tile-sub { min-height: 0; max-width: 175px; margin-top: 2px; }
+.game-badge { top: 9px; right: 100px; z-index:3; }
+
 /* ---------- Общие элементы ставок ---------- */
 .bet-label { font-size: .72rem; color: rgba(255,255,255,.45); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
 .bet-input-row {
