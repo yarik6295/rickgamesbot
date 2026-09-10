@@ -78,8 +78,52 @@ $$('.btn-back-to-profile').forEach((btn) => btn.addEventListener('click', () => 
 
 /* ============================= БАЛАНС ============================= */
 
+// Плавная анимация "счётчика" при изменении баланса — независимо от того,
+// насколько велика сумма, "прокрутка" цифр всегда идёт ровно 1 секунду
+// (не быстрее и не медленнее для маленьких/больших чисел). Если во время
+// анимации приходит новый вызов (например, следующая ставка), текущая
+// анимация обрывается и новая стартует от уже отображённого на экране
+// (промежуточного) значения — без рывков и "телепортаций".
+let balanceAnimFrame = null;
+const BALANCE_ANIM_MS = 1000;
+
+function animateBalanceTo(fromValue, toValue) {
+  const el = $('#balance-value');
+  if (balanceAnimFrame) {
+    cancelAnimationFrame(balanceAnimFrame);
+    balanceAnimFrame = null;
+  }
+  if (!Number.isFinite(fromValue) || fromValue === toValue) {
+    el.textContent = toValue;
+    return;
+  }
+  const startedAt = performance.now();
+  const step = (now) => {
+    const progress = Math.min(1, (now - startedAt) / BALANCE_ANIM_MS);
+    // easeOutCubic — быстрый разгон и мягкое торможение к финальной цифре,
+    // общая длительность всё равно ровно BALANCE_ANIM_MS.
+    const eased = 1 - Math.pow(1 - progress, 3);
+    const value = Math.round(fromValue + (toValue - fromValue) * eased);
+    el.textContent = value;
+    if (progress < 1) {
+      balanceAnimFrame = requestAnimationFrame(step);
+    } else {
+      el.textContent = toValue;
+      balanceAnimFrame = null;
+    }
+  };
+  balanceAnimFrame = requestAnimationFrame(step);
+}
+
 function updateBalanceUI(balance) {
-  $('#balance-value').textContent = balance;
+  const el = $('#balance-value');
+  const target = Number(balance);
+  const current = Number(el.textContent);
+  if (Number.isFinite(current) && Number.isFinite(target)) {
+    animateBalanceTo(current, target);
+  } else {
+    el.textContent = target;
+  }
   if (state.profile?.user) state.profile.user.coins_balance = balance;
 }
 window.updateBalanceUI = updateBalanceUI;
