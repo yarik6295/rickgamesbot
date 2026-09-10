@@ -1095,8 +1095,8 @@
     },
 
     chanceLabel(chance) {
-      if (chance >= 65) return 'Высокий шанс';
-      if (chance >= 25) return 'Средний шанс';
+      if (chance >= 66) return 'Высокий шанс';
+      if (chance >= 30) return 'Средний шанс';
       return 'Низкий шанс';
     },
 
@@ -1119,17 +1119,11 @@
       });
     },
 
-    resetResult() {
-      $('#upgrade-result').classList.add('hidden');
-      $('#upgrade-status-label').textContent = 'Выбери шанс';
-    },
-
     reset() {
       this.spinning = false;
       // Стрелку не дёргаем сюда — иначе при повторном входе на экран видно
       // рывок анимации назад к 0°. Она просто продолжит крутиться от
       // текущего положения при следующем раунде (как и колесо).
-      this.resetResult();
       this.updateDial();
     },
 
@@ -1140,7 +1134,6 @@
       this.spinning = true;
       const playBtn = $('#btn-upgrade-play');
       playBtn.disabled = true;
-      $('#upgrade-result').classList.add('hidden');
       $('#upgrade-status-label').textContent = 'Крутим...';
 
       try {
@@ -1153,17 +1146,13 @@
         setTimeout(() => {
           window.updateBalanceUI(res.newBalance);
 
-          const box = $('#upgrade-result');
-          box.classList.remove('hidden');
           if (res.win) {
             $('#upgrade-status-label').textContent = `Победа! (roll ${res.roll})`;
-            $('#upgrade-result-title').textContent = `🎉 Выигрыш ×${res.multiplier.toFixed(2)}`;
-            $('#upgrade-result-sub').textContent = `Начислено ${res.payoutCoins} ⭐`;
+            toast(`Выигрыш ×${res.multiplier.toFixed(2)}: +${res.payoutCoins} ⭐`);
             TelegramBridge.haptic('success');
           } else {
             $('#upgrade-status-label').textContent = `Мимо (roll ${res.roll})`;
-            $('#upgrade-result-title').textContent = '💥 Не повезло';
-            $('#upgrade-result-sub').textContent = 'Ставка сгорела';
+            toast('Не повезло — ставка сгорела', 'error');
             TelegramBridge.haptic('error');
           }
           this.spinning = false;
@@ -1173,7 +1162,7 @@
         toast(e.message, 'error');
         this.spinning = false;
         playBtn.disabled = false;
-        $('#upgrade-status-label').textContent = 'Выбери шанс';
+        this.updateDial();
       }
     },
   };

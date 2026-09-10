@@ -45,7 +45,7 @@
      и пользователь продолжает видеть старое поведение, хотя на сервере уже
      лежат новые файлы. При каждом деплое с правками фронтенда — увеличивайте
      это число (APP_VERSION ниже и во всех тегах). -->
-<link rel="stylesheet" href="css/style.css?v=17" />
+<link rel="stylesheet" href="css/style.css?v=18" />
 </head>
 <body class="bg-bg text-white min-h-screen font-sans overflow-x-hidden">
 
@@ -297,7 +297,7 @@
         <circle id="upgrade-dial-win" cx="80" cy="80" r="68" class="upgrade-dial-arc upgrade-dial-win" />
         <!-- Указатель живёт на внешнем кольце: не пересекает множитель и
              остаётся читаемым во время анимации результата. -->
-        <path id="upgrade-needle" d="M80 3 L73 17 L87 17 Z" class="upgrade-needle" />
+        <path id="upgrade-needle" d="M80 10 L73 24 L87 24 Z" class="upgrade-needle" />
       </svg>
       <div class="upgrade-dial-center">
         <div id="upgrade-mult-display" class="upgrade-mult">×1.02</div>
@@ -334,10 +334,6 @@
 
     <button id="btn-upgrade-play" class="btn-primary w-full mt-4 py-3.5 text-base">Начать раунд 🎯</button>
 
-    <div id="upgrade-result" class="hidden mt-4 result-card">
-      <p id="upgrade-result-title" class="text-center font-bold text-base mb-1"></p>
-      <p id="upgrade-result-sub" class="text-center text-white/50 text-sm"></p>
-    </div>
   </section>
 
   <!-- ============ ЭКРАН: WHEEL ============ -->
