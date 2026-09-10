@@ -988,13 +988,21 @@
       playBtn.disabled = true;
       document.querySelectorAll('.plinko-bucket').forEach((b) => b.classList.remove('plinko-bucket-hit'));
       try {
+        // Баланс ДО ставки — берём с экрана (то, что игрок реально видел
+        // перед нажатием), чтобы сразу после ответа показать списание,
+        // не дожидаясь анимации падения шарика.
+        const balanceBeforeBet = Number($('#balance-value').textContent) || 0;
         const fairness = await Api.fairnessCommit('plinko');
         const res = await Api.plinkoPlay(bet, this.risk, fairness.commitmentId);
-        // Баланс (ставка уже списана и, если выиграл, выигрыш уже начислен на
-        // сервере атомарно в момент этого ответа) обновляем в UI сразу, не
-        // дожидаясь анимации падения шарика — она чисто декоративная.
-        window.updateBalanceUI(res.newBalance);
+        // Ставка уже реально списана на сервере атомарно в момент этого
+        // ответа — отражаем списание в UI немедленно (оптимистично, по
+        // известной ставке). Выигрыш (если есть) уже тоже начислен на
+        // сервере, но в интерфейсе появится только по завершении анимации
+        // шарика — см. done() ниже — так время зачисления совпадает с
+        // моментом, когда игрок реально увидел исход.
+        window.updateBalanceUI(balanceBeforeBet - bet);
         this.animateBall(res.path, res.bucketIndex, () => {
+          window.updateBalanceUI(res.newBalance);
           toast(res.payout >= bet ? `Выигрыш ×${res.multiplier}: +${res.payout} ⭐` : `Мимо: ×${res.multiplier}`, res.payout >= bet ? 'info' : 'error');
           TelegramBridge.haptic(res.payout >= bet ? 'success' : 'error');
           document.querySelector(`.plinko-bucket[data-idx="${res.bucketIndex}"]`)?.classList.add('plinko-bucket-hit');
@@ -1143,18 +1151,26 @@
       $('#upgrade-status-label').textContent = 'Крутим...';
 
       try {
+        // Баланс ДО ставки — с экрана, как его реально видел игрок перед
+        // нажатием "Апгрейд".
+        const balanceBeforeBet = Number($('#balance-value').textContent) || 0;
         const fairness = await Api.fairnessCommit('upgrade');
         const res = await Api.upgradePlay(bet, this.chance, fairness.commitmentId);
-        // Ставка уже списана (и выигрыш, если он есть, уже начислен) на
-        // сервере атомарно в момент этого ответа — отражаем это в балансе
-        // сразу, не дожидаясь окончания вращения стрелки.
-        window.updateBalanceUI(res.newBalance);
+        // Ставка реально списана на сервере атомарно уже в момент этого
+        // ответа — показываем списание в UI сразу (оптимистично, по
+        // известной ставке), не дожидаясь вращения стрелки. А вот
+        // начисление выигрыша (если он есть) откладываем и показываем
+        // только по завершении анимации — см. setTimeout ниже — чтобы
+        // момент зачисления совпадал с моментом, когда игрок реально видит
+        // исход на циферблате.
+        window.updateBalanceUI(balanceBeforeBet - bet);
 
         const rollAngle = (res.roll / 100) * 360;
         this.totalRotation += 360 * 3 - (this.totalRotation % 360) + rollAngle;
         $('#upgrade-needle').style.transform = `rotate(${this.totalRotation}deg)`;
 
         setTimeout(() => {
+          window.updateBalanceUI(res.newBalance);
           if (res.win) {
             $('#upgrade-status-label').textContent = `Победа! (roll ${res.roll})`;
             toast(`Выигрыш ×${res.multiplier.toFixed(2)}: +${res.payoutCoins} ⭐`);
@@ -1253,12 +1269,16 @@
       $('#wheel-result').classList.add('hidden');
 
       try {
+        // Баланс ДО ставки — с экрана, как его реально видел игрок перед
+        // нажатием "Крутить".
+        const balanceBeforeBet = Number($('#balance-value').textContent) || 0;
         const fairness = await Api.fairnessCommit('wheel');
         const res = await Api.wheelPlay(bet, fairness.commitmentId);
-        // Ставка уже списана (и выигрыш уже начислен) на сервере атомарно в
-        // момент этого ответа — отражаем баланс сразу, не дожидаясь конца
-        // вращения колеса.
-        window.updateBalanceUI(res.newBalance);
+        // Ставка реально списана на сервере атомарно уже в момент этого
+        // ответа — показываем списание в UI сразу (оптимистично, по
+        // известной ставке). Начисление выигрыша (если есть) появится
+        // только по завершении вращения колеса — см. setTimeout ниже.
+        window.updateBalanceUI(balanceBeforeBet - bet);
         this.segments = res.segments;
         $('#wheel-disc').style.background = this.buildGradient(this.segments);
         this.renderLegend();
@@ -1269,6 +1289,7 @@
         $('#wheel-disc').style.transform = `rotate(${this.totalRotation}deg)`;
 
         setTimeout(() => {
+          window.updateBalanceUI(res.newBalance);
           const box = $('#wheel-result');
           box.classList.remove('hidden');
           if (res.payout >= bet) {
